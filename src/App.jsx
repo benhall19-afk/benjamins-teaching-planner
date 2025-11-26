@@ -211,15 +211,17 @@ export default function App() {
       if (!item.sermon_date && !item.properties?.sermon_date) return false;
       const itemDate = item.sermon_date || item.properties?.sermon_date;
       if (itemDate !== dateStr) return false;
-      
-      const status = item.status || item.properties?.status;
-      if (hidePrepared && (status === 'complete' || status === 'Ready to Preach')) return false;
-      
+
       const lessonType = item.lesson_type || item.properties?.lesson_type;
       if (lessonTypeFilter !== 'all' && lessonType !== lessonTypeFilter) return false;
-      
+
       return true;
     });
+  };
+
+  const isPreparedSermon = (event) => {
+    const status = event.status || event.properties?.status;
+    return status === 'complete' || status === 'Ready to Preach';
   };
 
   const getLessonTypeColor = (lessonType) => {
@@ -536,17 +538,6 @@ export default function App() {
               </div>
               
               <div className="flex items-center gap-3 flex-wrap">
-                <button
-                  onClick={() => setHidePrepared(!hidePrepared)}
-                  className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                    hidePrepared 
-                      ? 'bg-burgundy/10 border-burgundy text-burgundy' 
-                      : 'border-gold/30 text-ink/70 hover:border-gold'
-                  }`}
-                >
-                  {hidePrepared ? '👁 Unprepared Only' : '👁 Show All'}
-                </button>
-                
                 <select
                   value={lessonTypeFilter}
                   onChange={(e) => setLessonTypeFilter(e.target.value)}
@@ -638,6 +629,8 @@ export default function App() {
                         {events.map(event => {
                           const lessonType = event.lesson_type || event.properties?.lesson_type;
                           const name = event.sermon_name || event.title || lessonType || '—';
+                          const isPrepared = isPreparedSermon(event);
+                          const shouldDim = hidePrepared && isPrepared;
 
                           return (
                             <button
@@ -646,7 +639,7 @@ export default function App() {
                               onDragStart={() => setDraggedEvent(event)}
                               onDragEnd={() => setDraggedEvent(null)}
                               onClick={() => setEditingEntry({ ...event })}
-                              className={`entry-card w-full text-left px-1.5 py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing ${getLessonTypeColor(lessonType)} ${draggedEvent?.id === event.id ? 'opacity-50' : ''}`}
+                              className={`entry-card w-full text-left px-1.5 py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing ${getLessonTypeColor(lessonType)} ${draggedEvent?.id === event.id ? 'opacity-50' : ''} ${shouldDim ? 'opacity-40' : ''}`}
                             >
                               {name}
                             </button>
@@ -660,19 +653,30 @@ export default function App() {
             </div>
 
             {/* Legend */}
-            <div className="p-4 border-t border-gold/20 bg-parchment/30 flex items-center gap-6 text-sm flex-wrap">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-blue-100 border border-blue-400" />
-                <span className="text-ink/70">Sermon AM</span>
+            <div className="p-4 border-t border-gold/20 bg-parchment/30 flex items-center justify-between text-sm flex-wrap gap-4">
+              <div className="flex items-center gap-6 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-blue-100 border border-blue-400" />
+                  <span className="text-ink/70">Sermon AM</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-amber-100 border border-amber-400" />
+                  <span className="text-ink/70">Sermon PM</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-green-100 border border-green-400" />
+                  <span className="text-ink/70">Afternoon Study</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-amber-100 border border-amber-400" />
-                <span className="text-ink/70">Sermon PM</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-green-100 border border-green-400" />
-                <span className="text-ink/70">Afternoon Study</span>
-              </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hidePrepared}
+                  onChange={() => setHidePrepared(!hidePrepared)}
+                  className="w-4 h-4 rounded border-gold/30 text-burgundy focus:ring-burgundy"
+                />
+                <span className="text-ink/70">View only Unprepared Sermons</span>
+              </label>
             </div>
           </div>
         )}
