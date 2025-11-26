@@ -518,7 +518,10 @@ export default function App() {
         {activeTab === 'calendar' && (
           <div className="bg-white rounded-xl shadow-md border border-gold/20 overflow-hidden">
             {/* Calendar Controls */}
-            <div className="p-4 border-b border-gold/20 flex flex-col gap-4 bg-gradient-to-r from-parchment to-white">
+            <div className="p-4 border-b border-gold/20 flex items-center justify-between flex-wrap gap-4 bg-gradient-to-r from-parchment to-white">
+              {/* Empty spacer for left side */}
+              <div className="w-48 hidden md:block" />
+
               {/* Month/Year Navigation - Centered */}
               <div className="flex items-center justify-center gap-3">
                 <button
@@ -539,7 +542,7 @@ export default function App() {
               </div>
 
               {/* Filters - Right aligned */}
-              <div className="flex items-center justify-end gap-3 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap">
                 <select
                   value={lessonTypeFilter}
                   onChange={(e) => setLessonTypeFilter(e.target.value)}
