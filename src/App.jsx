@@ -518,10 +518,11 @@ export default function App() {
         {activeTab === 'calendar' && (
           <div className="bg-white rounded-xl shadow-md border border-gold/20 overflow-hidden">
             {/* Calendar Controls */}
-            <div className="p-4 border-b border-gold/20 flex items-center justify-between flex-wrap gap-4 bg-gradient-to-r from-parchment to-white">
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => navigateMonth(-1)} 
+            <div className="p-4 border-b border-gold/20 flex flex-col gap-4 bg-gradient-to-r from-parchment to-white">
+              {/* Month/Year Navigation - Centered */}
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={() => navigateMonth(-1)}
                   className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-lg transition-colors text-xl"
                 >
                   ◀
@@ -529,15 +530,16 @@ export default function App() {
                 <h2 className="text-xl font-display font-semibold text-ink min-w-48 text-center">
                   {MONTH_NAMES[month]} {year}
                 </h2>
-                <button 
-                  onClick={() => navigateMonth(1)} 
+                <button
+                  onClick={() => navigateMonth(1)}
                   className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-lg transition-colors text-xl"
                 >
                   ▶
                 </button>
               </div>
-              
-              <div className="flex items-center gap-3 flex-wrap">
+
+              {/* Filters - Right aligned */}
+              <div className="flex items-center justify-end gap-3 flex-wrap">
                 <select
                   value={lessonTypeFilter}
                   onChange={(e) => setLessonTypeFilter(e.target.value)}
@@ -548,7 +550,7 @@ export default function App() {
                     <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
-                
+
                 <button
                   onClick={() => setShowShiftModal(true)}
                   className="px-3 py-2 bg-gradient-to-r from-burgundy to-burgundy/80 text-white rounded-lg text-sm font-medium hover:shadow-md transition-all"
@@ -1019,7 +1021,21 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
           {SPECIAL_EVENTS.map(ev => <option key={ev} value={ev}>{ev}</option>)}
         </select>
       </div>
-      
+
+      <div>
+        <label className="block text-sm font-medium text-ink/70 mb-1">Status</label>
+        <select
+          value={getValue('status')}
+          onChange={(e) => updateField('status', e.target.value)}
+          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+        >
+          <option value="">Select...</option>
+          <option value="draft">Unprepared</option>
+          <option value="Ready to Preach">Ready to Preach</option>
+          <option value="complete">Complete</option>
+        </select>
+      </div>
+
       <div className="flex gap-3 pt-2">
         <button
           onClick={onSave}
