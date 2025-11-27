@@ -108,13 +108,14 @@ function SelectWithAdd({ value, onChange, options, customOptions, onAddCustom, l
 // ============================================
 
 export default function App() {
-  // Data state
-  const [sermons, setSermons] = useState([]);
+  // Data state - unified: schedule now contains all entries (including migrated sermons)
   const [schedule, setSchedule] = useState([]);
-  const [hashtags, setHashtags] = useState([]);
   const [seriesOptions, setSeriesOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Unscheduled sermons sidebar
+  const [showUnscheduled, setShowUnscheduled] = useState(false);
   
   // UI state
   const [activeTab, setActiveTab] = useState('calendar');
@@ -158,16 +159,13 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [sermonsData, scheduleData, hashtagsData, seriesData] = await Promise.all([
-        api.fetchSermons().catch(() => []),
+      // Schedule now contains all entries (including migrated sermons with content)
+      const [scheduleData, seriesData] = await Promise.all([
         api.fetchSchedule().catch(() => []),
-        api.fetchHashtags().catch(() => []),
         api.fetchSeries().catch(() => [])
       ]);
 
-      setSermons(sermonsData);
       setSchedule(scheduleData);
-      setHashtags(hashtagsData);
       // Extract series titles from the API response
       setSeriesOptions(seriesData.map(s => s.title).filter(Boolean));
     } catch (err) {
@@ -185,11 +183,38 @@ export default function App() {
     setToast({ message, type });
   };
 
+  // Filter schedule entries that need review (sermon_information_added is false)
   const sermonsNeedingInfo = useMemo(() => {
-    return sermons.filter(s => !s.properties?.sermon_information_added);
-  }, [sermons]);
+    return schedule.filter(s => {
+      const infoAdded = s.sermon_information_added || s.properties?.sermon_information_added;
+      return infoAdded === false || infoAdded === 'false';
+    });
+  }, [schedule]);
 
   const currentSermon = sermonsNeedingInfo[currentSermonIndex];
+
+  // Filter unscheduled sermons (no date set)
+  const unscheduledSermons = useMemo(() => {
+    return schedule.filter(s => {
+      const date = s.sermon_date || s.properties?.sermon_date;
+      return !date || date === '';
+    });
+  }, [schedule]);
+
+  // Categorize unscheduled by readiness
+  const readyToSchedule = useMemo(() => {
+    return unscheduledSermons.filter(s => {
+      const status = s.status || s.properties?.status;
+      return status === 'complete' || status === 'in progress';
+    });
+  }, [unscheduledSermons]);
+
+  const needsPreparation = useMemo(() => {
+    return unscheduledSermons.filter(s => {
+      const status = s.status || s.properties?.status;
+      return status !== 'complete' && status !== 'in progress';
+    });
+  }, [unscheduledSermons]);
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -261,7 +286,8 @@ export default function App() {
         sermon_date: entry.sermon_date || entry.properties?.sermon_date,
         special_event: entry.special_event || entry.properties?.special_event,
         status: entry.status || entry.properties?.status,
-        series: entry.series || entry.properties?.series
+        series: entry.series || entry.properties?.series,
+        content: entry.content || entry.properties?.content
       });
       
       // Update local state
@@ -385,10 +411,21 @@ export default function App() {
     // Use dynamic series from API, fall back to hardcoded if empty
     const seriesForAnalysis = seriesOptions.length > 0 ? seriesOptions : SERIES_OPTIONS;
 
+    // Get existing values from the entry to pre-populate
+    const existingValues = {
+      series: currentSermon.series || currentSermon.properties?.series || '',
+      theme: currentSermon.sermon_themefocus || currentSermon.properties?.sermon_themefocus || '',
+      audience: currentSermon.audience || currentSermon.properties?.audience || '',
+      season: currentSermon.seasonholiday || currentSermon.properties?.seasonholiday || '',
+      lessonType: currentSermon.content_type || currentSermon.properties?.content_type || '',
+      keyTakeaway: currentSermon.key_takeaway || currentSermon.properties?.key_takeaway || '',
+      hashtags: currentSermon.hashtags || currentSermon.properties?.hashtags || ''
+    };
+
     try {
       const result = await api.analyzeSermon(
-        currentSermon.title || currentSermon.sermon_title,
-        currentSermon.contentMarkdown || currentSermon.content || '',
+        currentSermon.sermon_name || currentSermon.title || currentSermon.properties?.sermon_name,
+        currentSermon.content || currentSermon.contentMarkdown || currentSermon.properties?.content || '',
         {
           series: seriesForAnalysis,
           themes: THEME_OPTIONS,
@@ -399,8 +436,19 @@ export default function App() {
         }
       );
 
-      setRecommendations(result);
-      setEditedRecommendations(result);
+      // Merge AI results with existing values - AI only fills blank fields
+      const mergedResult = {
+        series: existingValues.series || result.series,
+        theme: existingValues.theme || result.theme,
+        audience: existingValues.audience || result.audience,
+        season: existingValues.season || result.season,
+        lessonType: existingValues.lessonType || result.lessonType,
+        keyTakeaway: existingValues.keyTakeaway || result.keyTakeaway,
+        hashtags: existingValues.hashtags || result.hashtags
+      };
+
+      setRecommendations(mergedResult);
+      setEditedRecommendations(mergedResult);
     } catch (err) {
       showToast('Analysis failed: ' + err.message, 'error');
       setRecommendations({ error: 'Analysis failed. Please try again.' });
@@ -408,33 +456,86 @@ export default function App() {
     setIsAnalyzing(false);
   };
 
-  const handleApproveRecommendations = async () => {
+  // Save recommendations without marking as complete
+  const handleApprove = async () => {
     if (!currentSermon || !editedRecommendations) return;
-    
+
     setIsSaving(true);
     try {
-      await api.updateSermon(currentSermon.id, {
+      await api.updateScheduleEntry(currentSermon.id, {
         series: editedRecommendations.series,
         sermon_themefocus: editedRecommendations.theme,
         audience: editedRecommendations.audience,
         seasonholiday: editedRecommendations.season,
-        lesson_type: editedRecommendations.lessonType,
+        content_type: editedRecommendations.lessonType,
+        key_takeaway: editedRecommendations.keyTakeaway,
+        hashtags: editedRecommendations.hashtags
+        // sermon_information_added stays false
+      });
+
+      // Update local state
+      setSchedule(prev => prev.map(s =>
+        s.id === currentSermon.id
+          ? {
+              ...s,
+              series: editedRecommendations.series,
+              sermon_themefocus: editedRecommendations.theme,
+              audience: editedRecommendations.audience,
+              seasonholiday: editedRecommendations.season,
+              content_type: editedRecommendations.lessonType,
+              key_takeaway: editedRecommendations.keyTakeaway,
+              hashtags: editedRecommendations.hashtags
+            }
+          : s
+      ));
+
+      showToast('Recommendations saved!', 'success');
+    } catch (err) {
+      showToast('Failed to save: ' + err.message, 'error');
+    }
+    setIsSaving(false);
+  };
+
+  // Save recommendations AND mark as complete
+  const handleApproveAndComplete = async () => {
+    if (!currentSermon || !editedRecommendations) return;
+
+    setIsSaving(true);
+    try {
+      await api.updateScheduleEntry(currentSermon.id, {
+        series: editedRecommendations.series,
+        sermon_themefocus: editedRecommendations.theme,
+        audience: editedRecommendations.audience,
+        seasonholiday: editedRecommendations.season,
+        content_type: editedRecommendations.lessonType,
         key_takeaway: editedRecommendations.keyTakeaway,
         hashtags: editedRecommendations.hashtags,
         sermon_information_added: true
       });
-      
+
       // Update local state
-      setSermons(prev => prev.map(s => 
-        s.id === currentSermon.id 
-          ? { ...s, properties: { ...s.properties, sermon_information_added: true } }
+      setSchedule(prev => prev.map(s =>
+        s.id === currentSermon.id
+          ? {
+              ...s,
+              series: editedRecommendations.series,
+              sermon_themefocus: editedRecommendations.theme,
+              audience: editedRecommendations.audience,
+              seasonholiday: editedRecommendations.season,
+              content_type: editedRecommendations.lessonType,
+              key_takeaway: editedRecommendations.keyTakeaway,
+              hashtags: editedRecommendations.hashtags,
+              sermon_information_added: true,
+              properties: { ...s.properties, sermon_information_added: true }
+            }
           : s
       ));
-      
+
       setRecommendations(null);
       setEditedRecommendations({});
-      showToast('Sermon information saved!', 'success');
-      
+      showToast('Sermon information saved and marked complete!', 'success');
+
+      // Move to next sermon if available
       if (currentSermonIndex < sermonsNeedingInfo.length - 1) {
         setCurrentSermonIndex(prev => prev + 1);
       }
@@ -554,6 +655,19 @@ export default function App() {
                   ))}
                 </select>
 
+                {unscheduledSermons.length > 0 && (
+                  <button
+                    onClick={() => setShowUnscheduled(!showUnscheduled)}
+                    className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${
+                      showUnscheduled
+                        ? 'bg-gold text-white'
+                        : 'bg-gold/20 text-gold hover:bg-gold/30'
+                    }`}
+                  >
+                    📋 Unscheduled ({unscheduledSermons.length})
+                  </button>
+                )}
+
                 <button
                   onClick={() => setShowShiftModal(true)}
                   className="px-2 sm:px-3 py-1.5 sm:py-2 bg-gradient-to-r from-burgundy to-burgundy/80 text-white rounded-lg text-xs sm:text-sm font-medium hover:shadow-md transition-all flex-1 sm:flex-none"
@@ -563,8 +677,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* Calendar Grid */}
-            <div className="p-2 sm:p-4">
+            {/* Calendar Grid with optional sidebar */}
+            <div className={`flex ${showUnscheduled ? 'flex-col lg:flex-row' : ''}`}>
+              {/* Main Calendar */}
+              <div className={`p-2 sm:p-4 ${showUnscheduled ? 'flex-1' : 'w-full'}`}>
               {/* Day Headers */}
               <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
                 {DAY_NAMES.map(day => (
@@ -655,6 +771,60 @@ export default function App() {
                   );
                 })}
               </div>
+              </div>
+
+              {/* Unscheduled Sermons Sidebar */}
+              {showUnscheduled && (
+                <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-gold/20 p-3 sm:p-4 bg-parchment/30 max-h-[40vh] lg:max-h-none overflow-y-auto">
+                  <h3 className="font-display font-semibold text-sm text-ink mb-3">
+                    Unscheduled Sermons
+                  </h3>
+
+                  {readyToSchedule.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="text-xs font-medium text-sage mb-2">Ready to Schedule</h4>
+                      <div className="space-y-1">
+                        {readyToSchedule.map(sermon => (
+                          <div
+                            key={sermon.id}
+                            draggable
+                            onDragStart={() => setDraggedEvent(sermon)}
+                            onDragEnd={() => setDraggedEvent(null)}
+                            onClick={() => setEditingEntry({ ...sermon })}
+                            className="px-2 py-1.5 bg-white border border-sage/30 rounded text-xs cursor-grab active:cursor-grabbing hover:bg-sage/10 transition-colors truncate"
+                          >
+                            {sermon.sermon_name || sermon.properties?.sermon_name || 'Untitled'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {needsPreparation.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-medium text-burgundy/70 mb-2">Needs Preparation</h4>
+                      <div className="space-y-1">
+                        {needsPreparation.map(sermon => (
+                          <div
+                            key={sermon.id}
+                            draggable
+                            onDragStart={() => setDraggedEvent(sermon)}
+                            onDragEnd={() => setDraggedEvent(null)}
+                            onClick={() => setEditingEntry({ ...sermon })}
+                            className="px-2 py-1.5 bg-white/50 border border-gray-200 rounded text-xs cursor-grab active:cursor-grabbing hover:bg-gray-50 transition-colors truncate text-ink/60"
+                          >
+                            {sermon.sermon_name || sermon.properties?.sermon_name || 'Untitled'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {unscheduledSermons.length === 0 && (
+                    <p className="text-xs text-ink/50 italic">No unscheduled sermons</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Legend */}
@@ -724,7 +894,7 @@ export default function App() {
                   {/* Sermon Info */}
                   <div className="bg-parchment/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gold/20 flex flex-col max-h-[50vh] sm:max-h-[calc(100vh-250px)]">
                     <h3 className="font-display font-semibold text-base sm:text-lg text-ink mb-2 sm:mb-3">
-                      {currentSermon.title || currentSermon.sermon_title}
+                      {currentSermon.sermon_name || currentSermon.title || currentSermon.properties?.sermon_name}
                     </h3>
                     <div className="text-sm text-ink/70 flex-1 overflow-y-auto overflow-x-hidden pr-2">
                       <Markdown
@@ -744,7 +914,7 @@ export default function App() {
                           blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-2 border-burgundy/50 pl-3 italic my-2" />,
                         }}
                       >
-                        {(currentSermon.contentMarkdown || currentSermon.content || 'No content preview available.')
+                        {(currentSermon.content || currentSermon.contentMarkdown || currentSermon.properties?.content || 'No content preview available.')
                           .replace(/<highlight[^>]*>/gi, '**')
                           .replace(/<\/highlight>/gi, '**')
                           .replace(/<callout[^>]*>/gi, '\n> ')
@@ -849,17 +1019,24 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className="flex gap-3 pt-4 mt-auto">
+                        <div className="flex flex-col sm:flex-row gap-2 pt-4 mt-auto">
                           <button
-                            onClick={handleApproveRecommendations}
+                            onClick={handleApprove}
                             disabled={isSaving}
-                            className="flex-1 py-2.5 bg-sage text-white rounded-lg font-medium hover:bg-sage/90 transition-all disabled:opacity-50"
+                            className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-all disabled:opacity-50 text-sm"
                           >
-                            {isSaving ? 'Saving...' : '✓ Approve & Save'}
+                            {isSaving ? 'Saving...' : '✓ Approve'}
+                          </button>
+                          <button
+                            onClick={handleApproveAndComplete}
+                            disabled={isSaving}
+                            className="flex-1 py-2.5 bg-sage text-white rounded-lg font-medium hover:bg-sage/90 transition-all disabled:opacity-50 text-sm"
+                          >
+                            {isSaving ? 'Saving...' : '✓ Approve & Complete'}
                           </button>
                           <button
                             onClick={handleSkipSermon}
-                            className="flex-1 py-2.5 bg-gray-200 text-ink rounded-lg font-medium hover:bg-gray-300 transition-all"
+                            className="flex-1 py-2.5 bg-gray-200 text-ink rounded-lg font-medium hover:bg-gray-300 transition-all text-sm"
                           >
                             Skip
                           </button>
@@ -988,6 +1165,19 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
           className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         />
       </div>
+
+      {getValue('content') && (
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Content/Notes</label>
+          <textarea
+            value={getValue('content')}
+            onChange={(e) => updateField('content', e.target.value)}
+            rows={4}
+            className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base resize-y"
+            placeholder="Sermon content or notes..."
+          />
+        </div>
+      )}
 
       <div>
         <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Series</label>

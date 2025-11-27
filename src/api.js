@@ -123,6 +123,18 @@ export async function addSeries(title) {
 }
 
 // ============================================
+// MIGRATION API
+// ============================================
+
+export async function migrateSermons() {
+  const response = await fetch(`${API_BASE}/migrate-sermons`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  return handleResponse(response);
+}
+
+// ============================================
 // HEALTH CHECK
 // ============================================
 

@@ -248,6 +248,16 @@ app.get('/api/schedule', async (req, res) => {
       special_event: item.properties?.special_event || '',
       status: item.properties?.status || '',
       notes: item.properties?.notes || '',
+      // New merged fields from Sermons collection
+      content: item.properties?.content || '',
+      content_type: item.properties?.content_type || '',
+      sermon_information_added: item.properties?.sermon_information_added || false,
+      series: item.properties?.series || '',
+      sermon_themefocus: item.properties?.sermon_themefocus || '',
+      audience: item.properties?.audience || '',
+      seasonholiday: item.properties?.seasonholiday || '',
+      key_takeaway: item.properties?.key_takeaway || '',
+      hashtags: item.properties?.hashtags || '',
       properties: item.properties // Keep original for reference
     }));
 
@@ -362,12 +372,26 @@ app.put('/api/schedule/:id', async (req, res) => {
       properties: {}
     };
 
+    // Original schedule fields
     if (updates.lesson_type) craftUpdates.properties.lesson_type = updates.lesson_type;
     if (updates.preacher) craftUpdates.properties.preacher = updates.preacher;
     if (updates.sermon_date) craftUpdates.properties.sermon_date = updates.sermon_date;
     if (updates.special_event) craftUpdates.properties.special_event = updates.special_event;
     if (updates.status) craftUpdates.properties.status = updates.status;
     if (updates.notes) craftUpdates.properties.notes = updates.notes;
+    if (updates.series) craftUpdates.properties.series = updates.series;
+
+    // New merged fields from Sermons collection
+    if (updates.content !== undefined) craftUpdates.properties.content = updates.content;
+    if (updates.content_type) craftUpdates.properties.content_type = updates.content_type;
+    if (updates.sermon_information_added !== undefined) {
+      craftUpdates.properties.sermon_information_added = updates.sermon_information_added;
+    }
+    if (updates.sermon_themefocus) craftUpdates.properties.sermon_themefocus = updates.sermon_themefocus;
+    if (updates.audience) craftUpdates.properties.audience = updates.audience;
+    if (updates.seasonholiday) craftUpdates.properties.seasonholiday = updates.seasonholiday;
+    if (updates.key_takeaway) craftUpdates.properties.key_takeaway = updates.key_takeaway;
+    if (updates.hashtags) craftUpdates.properties.hashtags = updates.hashtags;
 
     const result = await updateCollectionItems(COLLECTIONS.schedule, [craftUpdates]);
 
@@ -392,10 +416,23 @@ app.post('/api/schedule', async (req, res) => {
       sermon_date: entry.sermon_date || '',
       status: entry.status || 'idea'
     };
-    // Only add special_event if it has a value (Craft doesn't accept null)
-    if (entry.special_event) {
-      properties.special_event = entry.special_event;
+
+    // Only add optional fields if they have values (Craft doesn't accept null)
+    if (entry.special_event) properties.special_event = entry.special_event;
+    if (entry.series) properties.series = entry.series;
+    if (entry.notes) properties.notes = entry.notes;
+
+    // New merged fields from Sermons collection
+    if (entry.content) properties.content = entry.content;
+    if (entry.content_type) properties.content_type = entry.content_type;
+    if (entry.sermon_information_added !== undefined) {
+      properties.sermon_information_added = entry.sermon_information_added;
     }
+    if (entry.sermon_themefocus) properties.sermon_themefocus = entry.sermon_themefocus;
+    if (entry.audience) properties.audience = entry.audience;
+    if (entry.seasonholiday) properties.seasonholiday = entry.seasonholiday;
+    if (entry.key_takeaway) properties.key_takeaway = entry.key_takeaway;
+    if (entry.hashtags) properties.hashtags = entry.hashtags;
 
     const craftEntry = {
       sermon_name: entry.sermon_name || '',
@@ -423,6 +460,149 @@ app.delete('/api/schedule/:id', async (req, res) => {
     res.json({ success: true, result });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete schedule entry', details: error.message });
+  }
+});
+
+// ============================================
+// MIGRATION ENDPOINT
+// ============================================
+
+/**
+ * Calculate next Sunday from a given date
+ */
+function getNextSunday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const daysUntilSunday = day === 0 ? 0 : 7 - day;
+  d.setDate(d.getDate() + daysUntilSunday);
+  return d.toISOString().split('T')[0];
+}
+
+/**
+ * One-time migration: Move all sermons from Sermons collection to Bible Teaching Overview
+ */
+app.post('/api/migrate-sermons', async (req, res) => {
+  try {
+    if (!COLLECTIONS.sermons || !COLLECTIONS.schedule) {
+      return res.status(503).json({
+        error: 'Collections not found. Ensure both Sermons and Schedule collections exist.'
+      });
+    }
+
+    console.log('Starting sermon migration...');
+
+    // Fetch all sermons
+    const result = await getCollectionItems(COLLECTIONS.sermons);
+    const rawSermons = result.items || result;
+
+    console.log(`Found ${rawSermons.length} sermons to migrate`);
+
+    const migratedItems = [];
+    const errors = [];
+
+    for (const sermon of rawSermons) {
+      try {
+        // Extract content
+        let contentMarkdown = '';
+        if (Array.isArray(sermon.content)) {
+          contentMarkdown = sermon.content
+            .filter(block => block.markdown)
+            .map(block => block.markdown)
+            .join('\n');
+        } else {
+          contentMarkdown = sermon.contentMarkdown || sermon.content || '';
+        }
+
+        // Calculate sermon_date from creation date (next Sunday)
+        // Craft items may have createdAt, or we use current date
+        const creationDate = sermon.createdAt || sermon.properties?.createdAt || new Date().toISOString();
+        const sermonDate = getNextSunday(creationDate);
+
+        // Map status values to Craft's allowed options: idea, in progress, complete, archive
+        let status = sermon.properties?.status || 'idea';
+        const statusMap = {
+          'draft': 'idea',
+          'Ready to Preach': 'in progress',
+          'complete': 'complete',
+          'Unprepared': 'idea'
+        };
+        status = statusMap[status] || 'idea';
+
+        // Build the migrated entry
+        const migratedEntry = {
+          sermon_name: sermon.title || sermon.sermon_title || 'Untitled Sermon',
+          properties: {
+            lesson_type: 'Sermon AM',
+            content_type: 'Sermon',
+            preacher: 'Benjamin',
+            sermon_date: sermonDate,
+            status: status,
+            content: contentMarkdown,
+            sermon_information_added: sermon.properties?.sermon_information_added || false,
+            series: sermon.properties?.series || '',
+            sermon_themefocus: sermon.properties?.sermon_themefocus || '',
+            audience: sermon.properties?.audience || '',
+            seasonholiday: sermon.properties?.seasonholiday || '',
+            key_takeaway: sermon.properties?.key_takeaway || '',
+            hashtags: sermon.properties?.hashtags || ''
+          }
+        };
+
+        // Only add non-empty values (Craft doesn't like nulls)
+        Object.keys(migratedEntry.properties).forEach(key => {
+          if (migratedEntry.properties[key] === '' || migratedEntry.properties[key] === null) {
+            delete migratedEntry.properties[key];
+          }
+        });
+
+        migratedItems.push(migratedEntry);
+      } catch (err) {
+        errors.push({ sermonId: sermon.id, error: err.message });
+      }
+    }
+
+    if (migratedItems.length === 0) {
+      return res.json({
+        success: false,
+        message: 'No sermons to migrate',
+        errors
+      });
+    }
+
+    // Add migrated items in batches to avoid "request entity too large" error
+    console.log(`Migrating ${migratedItems.length} sermons to Bible Teaching Overview in batches...`);
+    const BATCH_SIZE = 3;
+    let successCount = 0;
+    const results = [];
+
+    for (let i = 0; i < migratedItems.length; i += BATCH_SIZE) {
+      const batch = migratedItems.slice(i, i + BATCH_SIZE);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} items`);
+
+      try {
+        const batchResult = await addCollectionItems(COLLECTIONS.schedule, batch);
+        results.push(batchResult);
+        successCount += batch.length;
+      } catch (batchErr) {
+        console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, batchErr.message);
+        errors.push({ batch: Math.floor(i / BATCH_SIZE) + 1, error: batchErr.message });
+      }
+    }
+
+    res.json({
+      success: successCount > 0,
+      message: `Successfully migrated ${successCount} of ${migratedItems.length} sermons`,
+      migrated: successCount,
+      errors: errors.length > 0 ? errors : undefined,
+      results
+    });
+
+  } catch (error) {
+    console.error('Migration failed:', error);
+    res.status(500).json({
+      error: 'Migration failed',
+      details: error.message
+    });
   }
 });
 
