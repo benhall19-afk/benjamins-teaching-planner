@@ -49,7 +49,7 @@ function SelectWithAdd({ value, onChange, options, customOptions, onAddCustom, l
 
   if (isAdding) {
     return (
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
           type="text"
           value={newValue}
@@ -59,21 +59,23 @@ function SelectWithAdd({ value, onChange, options, customOptions, onAddCustom, l
             if (e.key === 'Escape') { setIsAdding(false); setNewValue(''); }
           }}
           placeholder={`New ${label}...`}
-          className="flex-1 px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+          className="flex-1 px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
           autoFocus
         />
-        <button
-          onClick={handleAddNew}
-          className="px-3 py-2 bg-sage text-white rounded-lg text-sm hover:bg-sage/90"
-        >
-          Add
-        </button>
-        <button
-          onClick={() => { setIsAdding(false); setNewValue(''); }}
-          className="px-3 py-2 bg-gray-200 text-ink rounded-lg text-sm hover:bg-gray-300"
-        >
-          Cancel
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleAddNew}
+            className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 bg-sage text-white rounded-lg text-sm hover:bg-sage/90"
+          >
+            Add
+          </button>
+          <button
+            onClick={() => { setIsAdding(false); setNewValue(''); }}
+            className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 bg-gray-200 text-ink rounded-lg text-sm hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     );
   }
@@ -89,7 +91,7 @@ function SelectWithAdd({ value, onChange, options, customOptions, onAddCustom, l
             onChange(e.target.value);
           }
         }}
-        className="flex-1 px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+        className="flex-1 px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
       >
         <option value="">Select...</option>
         {allOptions.map(opt => (
@@ -258,7 +260,8 @@ export default function App() {
         preacher: entry.preacher || entry.properties?.preacher,
         sermon_date: entry.sermon_date || entry.properties?.sermon_date,
         special_event: entry.special_event || entry.properties?.special_event,
-        status: entry.status || entry.properties?.status
+        status: entry.status || entry.properties?.status,
+        series: entry.series || entry.properties?.series
       });
       
       // Update local state
@@ -471,24 +474,24 @@ export default function App() {
       <div className="max-w-6xl mx-auto">
         
         {/* Header */}
-        <header className="bg-white rounded-xl shadow-md p-4 mb-6 border border-gold/20">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">📖</span>
+        <header className="bg-white rounded-lg sm:rounded-xl shadow-md p-3 sm:p-4 mb-4 sm:mb-6 border border-gold/20">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="text-2xl sm:text-3xl">📖</span>
               <div>
-                <h1 className="text-2xl font-display font-bold text-ink">Bible Teaching Planner</h1>
-                <p className="text-sm text-ink/60">Benjamin Hall</p>
+                <h1 className="text-xl sm:text-2xl font-display font-bold text-ink">Bible Teaching Planner</h1>
+                <p className="text-xs sm:text-sm text-ink/60">Benjamin Hall</p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-3">
+
+            <div className="flex items-center w-full sm:w-auto">
               {/* Tab Switcher */}
-              <div className="flex bg-parchment rounded-lg p-1">
+              <div className="flex bg-parchment rounded-lg p-1 w-full sm:w-auto">
                 <button
                   onClick={() => setActiveTab('calendar')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    activeTab === 'calendar' 
-                      ? 'bg-white shadow text-burgundy' 
+                  className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${
+                    activeTab === 'calendar'
+                      ? 'bg-white shadow text-burgundy'
                       : 'text-ink/60 hover:text-ink'
                   }`}
                 >
@@ -496,9 +499,9 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => setActiveTab('review')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-                    activeTab === 'review' 
-                      ? 'bg-white shadow text-burgundy' 
+                  className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                    activeTab === 'review'
+                      ? 'bg-white shadow text-burgundy'
                       : 'text-ink/60 hover:text-ink'
                   }`}
                 >
@@ -518,35 +521,32 @@ export default function App() {
         {activeTab === 'calendar' && (
           <div className="bg-white rounded-xl shadow-md border border-gold/20 overflow-hidden">
             {/* Calendar Controls */}
-            <div className="p-4 border-b border-gold/20 flex items-center justify-between flex-wrap gap-4 bg-gradient-to-r from-parchment to-white">
-              {/* Empty spacer for left side */}
-              <div className="w-48 hidden md:block" />
-
+            <div className="p-3 sm:p-4 border-b border-gold/20 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 bg-gradient-to-r from-parchment to-white">
               {/* Month/Year Navigation - Centered */}
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex items-center justify-center gap-2 sm:gap-3 order-1 sm:order-2 sm:flex-1">
                 <button
                   onClick={() => navigateMonth(-1)}
-                  className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-lg transition-colors text-xl"
+                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white rounded-lg transition-colors text-lg sm:text-xl"
                 >
                   ◀
                 </button>
-                <h2 className="text-xl font-display font-semibold text-ink min-w-48 text-center">
+                <h2 className="text-lg sm:text-xl font-display font-semibold text-ink min-w-36 sm:min-w-48 text-center">
                   {MONTH_NAMES[month]} {year}
                 </h2>
                 <button
                   onClick={() => navigateMonth(1)}
-                  className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-lg transition-colors text-xl"
+                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white rounded-lg transition-colors text-lg sm:text-xl"
                 >
                   ▶
                 </button>
               </div>
 
-              {/* Filters - Right aligned */}
-              <div className="flex items-center gap-3 flex-wrap">
+              {/* Filters */}
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center sm:justify-end order-2 sm:order-3 w-full sm:w-auto">
                 <select
                   value={lessonTypeFilter}
                   onChange={(e) => setLessonTypeFilter(e.target.value)}
-                  className="px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                  className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gold/30 rounded-lg text-xs sm:text-sm bg-white focus:border-gold outline-none flex-1 sm:flex-none"
                 >
                   <option value="all">All Types</option>
                   {SCHEDULE_LESSON_TYPES.map(type => (
@@ -556,7 +556,7 @@ export default function App() {
 
                 <button
                   onClick={() => setShowShiftModal(true)}
-                  className="px-3 py-2 bg-gradient-to-r from-burgundy to-burgundy/80 text-white rounded-lg text-sm font-medium hover:shadow-md transition-all"
+                  className="px-2 sm:px-3 py-1.5 sm:py-2 bg-gradient-to-r from-burgundy to-burgundy/80 text-white rounded-lg text-xs sm:text-sm font-medium hover:shadow-md transition-all flex-1 sm:flex-none"
                 >
                   ⬇️ Shift Down
                 </button>
@@ -564,13 +564,13 @@ export default function App() {
             </div>
 
             {/* Calendar Grid */}
-            <div className="p-4">
+            <div className="p-2 sm:p-4">
               {/* Day Headers */}
-              <div className="grid grid-cols-7 gap-1 mb-2">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
                 {DAY_NAMES.map(day => (
-                  <div 
-                    key={day} 
-                    className={`text-center text-sm font-semibold py-2 ${
+                  <div
+                    key={day}
+                    className={`text-center text-xs sm:text-sm font-semibold py-1 sm:py-2 ${
                       day === 'Sun' ? 'text-burgundy' : 'text-ink/60'
                     }`}
                   >
@@ -578,14 +578,14 @@ export default function App() {
                   </div>
                 ))}
               </div>
-              
+
               {/* Calendar Days */}
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                 {/* Empty cells for days before month starts */}
                 {Array.from({ length: startingDay }).map((_, i) => (
-                  <div key={`empty-${i}`} className="min-h-24 bg-parchment/30 rounded-lg" />
+                  <div key={`empty-${i}`} className="min-h-16 sm:min-h-24 bg-parchment/30 rounded-lg" />
                 ))}
-                
+
                 {/* Actual days */}
                 {Array.from({ length: daysInMonth }).map((_, i) => {
                   const day = i + 1;
@@ -593,7 +593,7 @@ export default function App() {
                   const events = getEventsForDate(dateStr);
                   const isSunday = new Date(year, month, day).getDay() === 0;
                   const isToday = new Date().toISOString().split('T')[0] === dateStr;
-                  
+
                   return (
                     <div
                       key={day}
@@ -606,7 +606,7 @@ export default function App() {
                           setShowAddModal(true);
                         }
                       }}
-                      className={`calendar-day group min-h-24 p-1.5 rounded-lg border transition-all cursor-pointer ${
+                      className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-all cursor-pointer ${
                         isToday
                           ? 'border-gold bg-gold/10'
                           : isSunday
@@ -614,23 +614,23 @@ export default function App() {
                             : 'border-gray-200 hover:border-gold/40'
                       } ${draggedEvent ? 'hover:border-gold hover:bg-gold/5' : ''}`}
                     >
-                      <div className="day-header flex items-center justify-between mb-1">
-                        <span className={`text-sm font-medium ${
+                      <div className="day-header flex items-center justify-between mb-0.5 sm:mb-1">
+                        <span className={`text-xs sm:text-sm font-medium ${
                           isToday ? 'text-gold' : isSunday ? 'text-burgundy' : 'text-ink/60'
                         }`}>
                           {day}
                         </span>
                         <button
                           onClick={(e) => { e.stopPropagation(); setAddDate(dateStr); setShowAddModal(true); }}
-                          className={`w-5 h-5 flex items-center justify-center text-gold hover:bg-gold/20 rounded transition-all text-sm ${
-                            isSunday ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          className={`w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center text-gold hover:bg-gold/20 rounded transition-all text-sm ${
+                            isSunday ? 'opacity-100' : 'opacity-70 sm:opacity-0 sm:group-hover:opacity-100'
                           }`}
                         >
                           +
                         </button>
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-0.5 sm:space-y-1">
                         {events.map(event => {
                           const lessonType = event.lesson_type || event.properties?.lesson_type;
                           const name = event.sermon_name || event.title || lessonType || '—';
@@ -644,7 +644,7 @@ export default function App() {
                               onDragStart={() => setDraggedEvent(event)}
                               onDragEnd={() => setDraggedEvent(null)}
                               onClick={() => setEditingEntry({ ...event })}
-                              className={`entry-card w-full text-left px-1.5 py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing ${getLessonTypeColor(lessonType)} ${draggedEvent?.id === event.id ? 'opacity-50' : ''} ${shouldDim ? 'opacity-40' : ''}`}
+                              className={`entry-card w-full text-left px-1 sm:px-1.5 py-0.5 sm:py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing ${getLessonTypeColor(lessonType)} ${draggedEvent?.id === event.id ? 'opacity-50' : ''} ${shouldDim ? 'opacity-40' : ''}`}
                             >
                               {name}
                             </button>
@@ -658,22 +658,22 @@ export default function App() {
             </div>
 
             {/* Legend */}
-            <div className="p-4 border-t border-gold/20 bg-parchment/30 flex items-center justify-between text-sm flex-wrap gap-4">
-              <div className="flex items-center gap-6 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-blue-100 border border-blue-400" />
+            <div className="p-3 sm:p-4 border-t border-gold/20 bg-parchment/30 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs sm:text-sm gap-3 sm:gap-4">
+              <div className="flex items-center gap-3 sm:gap-6 flex-wrap">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-blue-100 border border-blue-400" />
                   <span className="text-ink/70">Sermon AM</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-amber-100 border border-amber-400" />
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-amber-100 border border-amber-400" />
                   <span className="text-ink/70">Sermon PM</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-green-100 border border-green-400" />
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-green-100 border border-green-400" />
                   <span className="text-ink/70">Afternoon Study</span>
                 </div>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
+              <label className="flex items-center gap-2 cursor-pointer select-none w-full sm:w-auto">
                 <input
                   type="checkbox"
                   checked={hidePrepared}
@@ -688,42 +688,42 @@ export default function App() {
 
         {/* Review Tab */}
         {activeTab === 'review' && (
-          <div className="bg-white rounded-xl shadow-md border border-gold/20 p-6 mb-6">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-md border border-gold/20 p-3 sm:p-6 mb-4 sm:mb-6">
             {sermonsNeedingInfo.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">✅</div>
-                <h2 className="text-2xl font-display font-bold text-ink">All Sermons Reviewed!</h2>
-                <p className="text-ink/60 mt-2">No sermons need information added.</p>
+              <div className="text-center py-8 sm:py-12">
+                <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">✅</div>
+                <h2 className="text-xl sm:text-2xl font-display font-bold text-ink">All Sermons Reviewed!</h2>
+                <p className="text-ink/60 mt-2 text-sm sm:text-base">No sermons need information added.</p>
               </div>
             ) : currentSermon ? (
               <div>
                 {/* Review Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-display font-semibold text-ink">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <h2 className="text-base sm:text-xl font-display font-semibold text-ink">
                     Sermon {currentSermonIndex + 1} of {sermonsNeedingInfo.length}
                   </h2>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setCurrentSermonIndex(Math.max(0, currentSermonIndex - 1))}
                       disabled={currentSermonIndex === 0}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-parchment rounded-lg disabled:opacity-30 transition-colors"
+                      className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-parchment rounded-lg disabled:opacity-30 transition-colors"
                     >
                       ◀
                     </button>
                     <button
                       onClick={() => setCurrentSermonIndex(Math.min(sermonsNeedingInfo.length - 1, currentSermonIndex + 1))}
                       disabled={currentSermonIndex === sermonsNeedingInfo.length - 1}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-parchment rounded-lg disabled:opacity-30 transition-colors"
+                      className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-parchment rounded-lg disabled:opacity-30 transition-colors"
                     >
                       ▶
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-stretch">
                   {/* Sermon Info */}
-                  <div className="bg-parchment/50 rounded-xl p-4 border border-gold/20 flex flex-col max-h-[calc(100vh-250px)]">
-                    <h3 className="font-display font-semibold text-lg text-ink mb-3">
+                  <div className="bg-parchment/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gold/20 flex flex-col max-h-[50vh] sm:max-h-[calc(100vh-250px)]">
+                    <h3 className="font-display font-semibold text-base sm:text-lg text-ink mb-2 sm:mb-3">
                       {currentSermon.title || currentSermon.sermon_title}
                     </h3>
                     <div className="text-sm text-ink/70 flex-1 overflow-y-auto overflow-x-hidden pr-2">
@@ -759,7 +759,7 @@ export default function App() {
                     <button
                       onClick={handleAnalyzeSermon}
                       disabled={isAnalyzing}
-                      className="w-full py-3 mt-4 bg-gradient-to-r from-burgundy to-burgundy/80 text-white rounded-lg font-medium hover:shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 flex-shrink-0"
+                      className="w-full py-2.5 sm:py-3 mt-3 sm:mt-4 bg-gradient-to-r from-burgundy to-burgundy/80 text-white rounded-lg text-sm sm:text-base font-medium hover:shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 flex-shrink-0"
                     >
                       {isAnalyzing ? (
                         <>
@@ -775,8 +775,8 @@ export default function App() {
                   </div>
 
                   {/* Recommendations */}
-                  <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-200/50 flex flex-col max-h-[calc(100vh-250px)]">
-                    <h3 className="font-display font-semibold text-lg text-ink mb-3">
+                  <div className="bg-blue-50/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-blue-200/50 flex flex-col max-h-[50vh] sm:max-h-[calc(100vh-250px)]">
+                    <h3 className="font-display font-semibold text-base sm:text-lg text-ink mb-2 sm:mb-3">
                       Recommendations
                     </h3>
 
@@ -898,6 +898,16 @@ export default function App() {
             onCancel={() => setEditingEntry(null)}
             isSaving={isSaving}
             showDelete
+            seriesOptions={seriesOptions}
+            onAddSeries={async (newSeries) => {
+              try {
+                await api.addSeries(newSeries);
+                setSeriesOptions(prev => [...prev, newSeries]);
+                showToast(`Series "${newSeries}" added!`, 'success');
+              } catch (err) {
+                showToast('Failed to add series: ' + err.message, 'error');
+              }
+            }}
           />
         </Modal>
       )}
@@ -945,21 +955,21 @@ export default function App() {
 
 function Modal({ children, onClose }) {
   return (
-    <div 
-      className="modal-backdrop fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+    <div
+      className="modal-backdrop fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-2 sm:p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 max-w-[calc(100vw-1rem)] sm:max-w-md w-full max-h-[85vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl">
         {children}
       </div>
     </div>
   );
 }
 
-function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, showDelete }) {
+function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, showDelete, seriesOptions = [], onAddSeries }) {
   const updateField = (field, value) => {
-    onChange({ 
-      ...entry, 
+    onChange({
+      ...entry,
       [field]: value,
       properties: { ...entry.properties, [field]: value }
     });
@@ -968,57 +978,73 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
   const getValue = (field) => entry[field] || entry.properties?.[field] || '';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Name</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Name</label>
         <input
           type="text"
           value={getValue('sermon_name')}
           onChange={(e) => updateField('sermon_name', e.target.value)}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         />
       </div>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Type</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Series</label>
+        <SelectWithAdd
+          value={getValue('series')}
+          onChange={(value) => updateField('series', value)}
+          options={seriesOptions}
+          customOptions={[]}
+          onAddCustom={async (newValue) => {
+            if (onAddSeries) {
+              await onAddSeries(newValue);
+            }
+          }}
+          label="Series"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Type</label>
         <select
           value={getValue('lesson_type')}
           onChange={(e) => updateField('lesson_type', e.target.value)}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
           <option value="">Select...</option>
           {SCHEDULE_LESSON_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Preacher</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Preacher</label>
         <select
           value={getValue('preacher')}
           onChange={(e) => updateField('preacher', e.target.value)}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
           <option value="">Select...</option>
           {PREACHERS.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
       </div>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Date</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Date</label>
         <input
           type="date"
           value={getValue('sermon_date')}
           onChange={(e) => updateField('sermon_date', e.target.value)}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         />
       </div>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Special Event</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Special Event</label>
         <select
           value={getValue('special_event')}
           onChange={(e) => updateField('special_event', e.target.value)}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
           <option value="">None</option>
           {SPECIAL_EVENTS.map(ev => <option key={ev} value={ev}>{ev}</option>)}
@@ -1026,11 +1052,11 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Status</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Status</label>
         <select
           value={getValue('status')}
           onChange={(e) => updateField('status', e.target.value)}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
           <option value="">Select...</option>
           <option value="draft">Unprepared</option>
@@ -1039,17 +1065,17 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
         </select>
       </div>
 
-      <div className="flex gap-3 pt-2">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
         <button
           onClick={onSave}
           disabled={isSaving}
-          className="flex-1 py-2.5 bg-burgundy text-white rounded-lg font-medium hover:bg-burgundy/90 transition-all disabled:opacity-50"
+          className="w-full sm:flex-1 py-2.5 bg-burgundy text-white rounded-lg text-sm sm:text-base font-medium hover:bg-burgundy/90 transition-all disabled:opacity-50"
         >
           {isSaving ? 'Saving...' : 'Save'}
         </button>
         <button
           onClick={onCancel}
-          className="flex-1 py-2.5 bg-gray-200 text-ink rounded-lg font-medium hover:bg-gray-300 transition-all"
+          className="w-full sm:flex-1 py-2.5 bg-gray-200 text-ink rounded-lg text-sm sm:text-base font-medium hover:bg-gray-300 transition-all"
         >
           Cancel
         </button>
@@ -1078,73 +1104,73 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving }) {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Name</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Name</label>
         <input
           type="text"
           value={entry.sermon_name}
           onChange={(e) => setEntry(prev => ({ ...prev, sermon_name: e.target.value }))}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
           placeholder="Sermon name..."
         />
       </div>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Type</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Type</label>
         <select
           value={entry.lesson_type}
           onChange={(e) => setEntry(prev => ({ ...prev, lesson_type: e.target.value }))}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
           {SCHEDULE_LESSON_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Preacher</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Preacher</label>
         <select
           value={entry.preacher}
           onChange={(e) => setEntry(prev => ({ ...prev, preacher: e.target.value }))}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
           {PREACHERS.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
       </div>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Date</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Date</label>
         <input
           type="date"
           value={entry.sermon_date}
           onChange={(e) => setEntry(prev => ({ ...prev, sermon_date: e.target.value }))}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         />
       </div>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Special Event</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Special Event</label>
         <select
           value={entry.special_event}
           onChange={(e) => setEntry(prev => ({ ...prev, special_event: e.target.value }))}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
           <option value="">None</option>
           {SPECIAL_EVENTS.map(ev => <option key={ev} value={ev}>{ev}</option>)}
         </select>
       </div>
-      
-      <div className="flex gap-3 pt-2">
+
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
         <button
           onClick={() => onSave(entry)}
           disabled={isSaving}
-          className="flex-1 py-2.5 bg-sage text-white rounded-lg font-medium hover:bg-sage/90 transition-all disabled:opacity-50"
+          className="w-full sm:flex-1 py-2.5 bg-sage text-white rounded-lg text-sm sm:text-base font-medium hover:bg-sage/90 transition-all disabled:opacity-50"
         >
           {isSaving ? 'Adding...' : 'Add Entry'}
         </button>
         <button
           onClick={onCancel}
-          className="flex-1 py-2.5 bg-gray-200 text-ink rounded-lg font-medium hover:bg-gray-300 transition-all"
+          className="w-full sm:flex-1 py-2.5 bg-gray-200 text-ink rounded-lg text-sm sm:text-base font-medium hover:bg-gray-300 transition-all"
         >
           Cancel
         </button>
@@ -1159,56 +1185,56 @@ function ShiftForm({ onShift, onCancel, isSaving }) {
   const [scope, setScope] = useState('all');
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-ink/70">
+    <div className="space-y-3 sm:space-y-4">
+      <p className="text-xs sm:text-sm text-ink/70">
         This will move all sermons from the selected date forward by the specified number of weeks.
       </p>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">From Date</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">From Date</label>
         <input
           type="date"
           value={fromDate}
           onChange={(e) => setFromDate(e.target.value)}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         />
       </div>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">Number of Weeks</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Number of Weeks</label>
         <input
           type="number"
           min="1"
           max="12"
           value={weeks}
           onChange={(e) => setWeeks(parseInt(e.target.value) || 1)}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         />
       </div>
-      
+
       <div>
-        <label className="block text-sm font-medium text-ink/70 mb-1">What to Shift</label>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">What to Shift</label>
         <select
           value={scope}
           onChange={(e) => setScope(e.target.value)}
-          className="w-full px-3 py-2 border border-gold/30 rounded-lg focus:border-gold outline-none"
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
           <option value="all">All Sermons</option>
           <option value="benjamin">Benjamin's Sermons Only</option>
         </select>
       </div>
-      
-      <div className="flex gap-3 pt-2">
+
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
         <button
           onClick={() => onShift(fromDate, weeks, scope)}
           disabled={isSaving || !fromDate}
-          className="flex-1 py-2.5 bg-burgundy text-white rounded-lg font-medium hover:bg-burgundy/90 transition-all disabled:opacity-50"
+          className="w-full sm:flex-1 py-2.5 bg-burgundy text-white rounded-lg text-sm sm:text-base font-medium hover:bg-burgundy/90 transition-all disabled:opacity-50"
         >
           {isSaving ? 'Shifting...' : 'Shift Down'}
         </button>
         <button
           onClick={onCancel}
-          className="flex-1 py-2.5 bg-gray-200 text-ink rounded-lg font-medium hover:bg-gray-300 transition-all"
+          className="w-full sm:flex-1 py-2.5 bg-gray-200 text-ink rounded-lg text-sm sm:text-base font-medium hover:bg-gray-300 transition-all"
         >
           Cancel
         </button>
