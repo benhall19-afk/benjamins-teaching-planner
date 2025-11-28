@@ -1100,6 +1100,21 @@ export default function App() {
                         {recommendations ? '✓ AI analyzed - review below' : 'Edit existing values or click "Analyze with AI" to auto-fill'}
                       </p>
                       <div className="space-y-3 flex-1 overflow-y-auto pr-1">
+                        {/* Date display */}
+                        <div className="flex items-center gap-2 pb-2 border-b border-gold/20">
+                          <span className="text-xs font-medium text-ink/70">Date:</span>
+                          <span className="text-sm font-medium text-ink">
+                            {currentSermon?.sermon_date || currentSermon?.properties?.sermon_date
+                              ? new Date(currentSermon.sermon_date || currentSermon.properties.sermon_date).toLocaleDateString('en-US', {
+                                  weekday: 'short',
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })
+                              : 'No date set'}
+                          </span>
+                        </div>
+
                         {[
                           { key: 'series', label: 'Series', options: seriesOptions.length > 0 ? seriesOptions.map(s => s.title) : SERIES_OPTIONS, canAddToApi: true },
                           { key: 'theme', label: 'Theme', options: THEME_OPTIONS, canAddToApi: false },
