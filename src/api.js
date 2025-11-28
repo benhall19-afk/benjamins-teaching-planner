@@ -123,6 +123,19 @@ export async function addSeries(title) {
 }
 
 // ============================================
+// SCHEMA API - Add options to single-select fields
+// ============================================
+
+export async function addFieldOption(fieldName, newOption) {
+  const response = await fetch(`${API_BASE}/add-field-option`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fieldName, newOption })
+  });
+  return handleResponse(response);
+}
+
+// ============================================
 // MIGRATION API
 // ============================================
 

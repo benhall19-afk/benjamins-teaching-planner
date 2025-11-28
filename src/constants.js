@@ -2,12 +2,19 @@
  * Application Constants and Configuration
  */
 
+// These should match actual series in Craft's Sermon Series collection
+// They're used as fallback if the API doesn't return series
 export const SERIES_OPTIONS = [
-  "Foundational Discipleship",
-  "Gospel & Redemption", 
-  "Daily Christian Living",
-  "Special & Seasonal",
-  "Other"
+  "Christianity Explored",
+  "How to Preach",
+  "Preach the Gospel",
+  "Prove the Gospel",
+  "Protect the Gospel",
+  "Creation to Christ",
+  "God's Will For Your Life",
+  "Be a Man",
+  "2025 Character Series",
+  "Filled with all the fullness of God"
 ];
 
 export const THEME_OPTIONS = [
@@ -20,7 +27,8 @@ export const THEME_OPTIONS = [
   "Redemption",
   "Character",
   "Work & Purpose",
-  "Community/Family"
+  "Community/Family",
+  "New Creature in Christ"
 ];
 
 export const AUDIENCE_OPTIONS = [
@@ -42,24 +50,20 @@ export const SEASON_OPTIONS = [
 ];
 
 export const STATUS_OPTIONS = [
-  "Complete",
   "Draft",
-  "Needs Polish",
-  "Ready to Preach"
+  "in progress",
+  "Complete",
+  "Ready to Preach",
+  "archive"
 ];
 
 export const LESSON_TYPE_OPTIONS = [
   "Sermon",
+  "Bible Lesson",
+  "Short English Bible Lesson",
   "Devotional",
   "Young Children's Bible Lesson",
-  "Short English Bible Lesson",
-  "Bible Lesson"
-];
-
-export const SCHEDULE_LESSON_TYPES = [
-  "Sermon AM",
-  "Sermon PM",
-  "Afternoon Study"
+  "Video Lesson"
 ];
 
 export const PREACHERS = [
@@ -79,7 +83,8 @@ export const SPECIAL_EVENTS = [
   "Thanksgiving",
   "Resurrection Day",
   "New Years",
-  "Baptism"
+  "Baptism",
+  "Thai Mothers Day"
 ];
 
 export const MONTH_NAMES = [

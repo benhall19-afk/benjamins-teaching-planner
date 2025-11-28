@@ -3,7 +3,7 @@ import Markdown from 'react-markdown';
 import * as api from './api';
 import {
   SERIES_OPTIONS, THEME_OPTIONS, AUDIENCE_OPTIONS, SEASON_OPTIONS,
-  LESSON_TYPE_OPTIONS, SCHEDULE_LESSON_TYPES, PREACHERS, SPECIAL_EVENTS,
+  LESSON_TYPE_OPTIONS, PREACHERS, SPECIAL_EVENTS,
   MONTH_NAMES, DAY_NAMES, getAllHashtags
 } from './constants';
 
@@ -161,14 +161,20 @@ export default function App() {
     try {
       // Schedule now contains all entries (including migrated sermons with content)
       const [scheduleData, seriesData] = await Promise.all([
-        api.fetchSchedule().catch(() => []),
-        api.fetchSeries().catch(() => [])
+        api.fetchSchedule().catch((e) => { console.error('Failed to fetch schedule:', e); return []; }),
+        api.fetchSeries().catch((e) => { console.error('Failed to fetch series:', e); return []; })
       ]);
 
+      console.log('Loaded data - Schedule:', scheduleData.length, 'items, Series:', seriesData.length, 'items');
+      console.log('Series data sample:', seriesData.slice(0, 3));
+
       setSchedule(scheduleData);
-      // Extract series titles from the API response
-      setSeriesOptions(seriesData.map(s => s.title).filter(Boolean));
+      // Keep full series objects (id + title) for relation handling
+      const filteredSeries = seriesData.filter(s => s && s.title);
+      console.log('Filtered series:', filteredSeries.length, 'items');
+      setSeriesOptions(filteredSeries);
     } catch (err) {
+      console.error('loadData error:', err);
       setError('Failed to load data. Using offline mode.');
       showToast('Could not connect to server. Running in demo mode.', 'error');
     }
@@ -183,19 +189,62 @@ export default function App() {
     setToast({ message, type });
   };
 
-  // Filter schedule entries that need review (sermon_information_added is false)
+  // Filter schedule entries that need review:
+  // - Only "Complete", "Ready to Preach", or "archive" status
+  // - Benjamin only
+  // - sermon_information_added is false/undefined
   const sermonsNeedingInfo = useMemo(() => {
-    return schedule.filter(s => {
-      const infoAdded = s.sermon_information_added || s.properties?.sermon_information_added;
-      return infoAdded === false || infoAdded === 'false';
+    console.log('sermonsNeedingInfo filter - schedule length:', schedule.length);
+    const validStatuses = ['Complete', 'Ready to Preach', 'archive'];
+    const result = schedule.filter(s => {
+      const status = s.status || s.properties?.status;
+      // Only include sermons with specific statuses
+      if (!validStatuses.includes(status)) return false;
+      // Only show Benjamin's sermons for review
+      const preacher = s.preacher || s.properties?.preacher;
+      if (preacher !== 'Benjamin') return false;
+      // Use nullish coalescing (??) instead of || to properly handle false values
+      const infoAdded = s.sermon_information_added ?? s.properties?.sermon_information_added;
+      // Show in review if NOT explicitly true (handles false, undefined, null, 'false')
+      return infoAdded !== true && infoAdded !== 'true';
     });
+    console.log('sermonsNeedingInfo result:', result.length, 'items');
+    if (result.length === 0 && schedule.length > 0) {
+      // Debug: show first few Benjamin items
+      const benjaminItems = schedule.filter(s => s.preacher === 'Benjamin').slice(0, 3);
+      console.log('Benjamin items sample:', benjaminItems.map(s => ({
+        name: s.sermon_name,
+        status: s.status,
+        preacher: s.preacher,
+        sermon_information_added: s.sermon_information_added
+      })));
+    }
+    return result;
   }, [schedule]);
 
   const currentSermon = sermonsNeedingInfo[currentSermonIndex];
 
-  // Filter unscheduled sermons (no date set)
+  // Initialize editedRecommendations with existing sermon data when sermon changes
+  useEffect(() => {
+    if (currentSermon) {
+      setEditedRecommendations({
+        series: currentSermon.series || currentSermon.properties?.sermon_series?.relations?.[0]?.title || '',
+        theme: currentSermon.sermon_themefocus || currentSermon.properties?.sermon_themefocus || '',
+        audience: currentSermon.audience || currentSermon.properties?.audience || '',
+        season: currentSermon.seasonholiday || currentSermon.properties?.seasonholiday || '',
+        lessonType: currentSermon.lesson_type || currentSermon.properties?.lesson_type || '',
+        keyTakeaway: currentSermon.key_takeaway || currentSermon.properties?.key_takeaway || '',
+        hashtags: currentSermon.hashtags || currentSermon.properties?.hashtags || ''
+      });
+      setRecommendations(null); // Clear AI recommendations when sermon changes
+    }
+  }, [currentSermon?.id]);
+
+  // Filter unscheduled sermons (no date set, exclude archived)
   const unscheduledSermons = useMemo(() => {
     return schedule.filter(s => {
+      const status = s.status || s.properties?.status;
+      if (status === 'archive') return false;
       const date = s.sermon_date || s.properties?.sermon_date;
       return !date || date === '';
     });
@@ -205,14 +254,14 @@ export default function App() {
   const readyToSchedule = useMemo(() => {
     return unscheduledSermons.filter(s => {
       const status = s.status || s.properties?.status;
-      return status === 'complete' || status === 'in progress';
+      return status === 'Complete' || status === 'Ready to Preach' || status === 'in progress';
     });
   }, [unscheduledSermons]);
 
   const needsPreparation = useMemo(() => {
     return unscheduledSermons.filter(s => {
       const status = s.status || s.properties?.status;
-      return status !== 'complete' && status !== 'in progress';
+      return status !== 'Complete' && status !== 'Ready to Preach' && status !== 'in progress';
     });
   }, [unscheduledSermons]);
 
@@ -235,6 +284,10 @@ export default function App() {
 
   const getEventsForDate = (dateStr) => {
     return schedule.filter(item => {
+      // Hide archived items
+      const status = item.status || item.properties?.status;
+      if (status === 'archive') return false;
+
       if (!item.sermon_date && !item.properties?.sermon_date) return false;
       const itemDate = item.sermon_date || item.properties?.sermon_date;
       if (itemDate !== dateStr) return false;
@@ -248,17 +301,25 @@ export default function App() {
 
   const isPreparedSermon = (event) => {
     const status = event.status || event.properties?.status;
-    return status === 'complete' || status === 'Ready to Preach';
+    return status === 'Complete' || status === 'Ready to Preach';
   };
 
   const getLessonTypeColor = (lessonType) => {
     switch (lessonType) {
+      case 'Sermon':
       case 'Sermon AM':
         return 'bg-blue-100 border-blue-400 text-blue-800 hover:bg-blue-200';
       case 'Sermon PM':
+      case 'Devotional':
         return 'bg-amber-100 border-amber-400 text-amber-800 hover:bg-amber-200';
+      case 'Bible Lesson':
+      case 'Short English Bible Lesson':
       case 'Afternoon Study':
         return 'bg-green-100 border-green-400 text-green-800 hover:bg-green-200';
+      case 'Young Children\'s Bible Lesson':
+        return 'bg-purple-100 border-purple-400 text-purple-800 hover:bg-purple-200';
+      case 'Video Lesson':
+        return 'bg-pink-100 border-pink-400 text-pink-800 hover:bg-pink-200';
       default:
         return 'bg-gray-100 border-gray-400 text-gray-800 hover:bg-gray-200';
     }
@@ -279,6 +340,11 @@ export default function App() {
   const handleSaveEntry = async (entry) => {
     setIsSaving(true);
     try {
+      // Look up sermon_series_id from series title if needed
+      const seriesTitle = entry.series || entry.properties?.series;
+      const seriesObj = seriesOptions.find(s => s.title === seriesTitle);
+      const sermonSeriesId = entry.sermon_series_id || seriesObj?.id || null;
+
       await api.updateScheduleEntry(entry.id, {
         sermon_name: entry.sermon_name,
         lesson_type: entry.lesson_type || entry.properties?.lesson_type,
@@ -286,10 +352,10 @@ export default function App() {
         sermon_date: entry.sermon_date || entry.properties?.sermon_date,
         special_event: entry.special_event || entry.properties?.special_event,
         status: entry.status || entry.properties?.status,
-        series: entry.series || entry.properties?.series,
-        content: entry.content || entry.properties?.content
+        sermon_series_id: sermonSeriesId,
+        primary_text: entry.primary_text || entry.properties?.primary_text
       });
-      
+
       // Update local state
       setSchedule(prev => prev.map(s => s.id === entry.id ? entry : s));
       setEditingEntry(null);
@@ -409,7 +475,8 @@ export default function App() {
     setIsAnalyzing(true);
 
     // Use dynamic series from API, fall back to hardcoded if empty
-    const seriesForAnalysis = seriesOptions.length > 0 ? seriesOptions : SERIES_OPTIONS;
+    const seriesTitles = seriesOptions.map(s => s.title);
+    const seriesForAnalysis = seriesTitles.length > 0 ? seriesTitles : SERIES_OPTIONS;
 
     // Get existing values from the entry to pre-populate
     const existingValues = {
@@ -457,17 +524,32 @@ export default function App() {
   };
 
   // Save recommendations without marking as complete
+  // Note: Server uses allowNewSelectOptions=true so new theme/audience/season values
+  // are automatically added to Craft's schema when saving
   const handleApprove = async () => {
     if (!currentSermon || !editedRecommendations) return;
 
     setIsSaving(true);
     try {
+      // Look up sermon_series_id from series title (case-insensitive, trimmed)
+      const selectedSeries = (editedRecommendations.series || '').trim().toLowerCase();
+      const seriesObj = seriesOptions.find(s =>
+        s.title && s.title.trim().toLowerCase() === selectedSeries
+      );
+      const sermonSeriesId = seriesObj?.id || null;
+
+      console.log('Series lookup:', {
+        selectedSeries: editedRecommendations.series,
+        foundMatch: seriesObj?.title,
+        sermonSeriesId,
+        availableSeries: seriesOptions.map(s => s.title)
+      });
+
       await api.updateScheduleEntry(currentSermon.id, {
-        series: editedRecommendations.series,
+        sermon_series_id: sermonSeriesId,
         sermon_themefocus: editedRecommendations.theme,
         audience: editedRecommendations.audience,
         seasonholiday: editedRecommendations.season,
-        content_type: editedRecommendations.lessonType,
         key_takeaway: editedRecommendations.keyTakeaway,
         hashtags: editedRecommendations.hashtags
         // sermon_information_added stays false
@@ -497,17 +579,32 @@ export default function App() {
   };
 
   // Save recommendations AND mark as complete
+  // Note: Server uses allowNewSelectOptions=true so new theme/audience/season values
+  // are automatically added to Craft's schema when saving
   const handleApproveAndComplete = async () => {
     if (!currentSermon || !editedRecommendations) return;
 
     setIsSaving(true);
     try {
+      // Look up sermon_series_id from series title (case-insensitive, trimmed)
+      const selectedSeries = (editedRecommendations.series || '').trim().toLowerCase();
+      const seriesObj = seriesOptions.find(s =>
+        s.title && s.title.trim().toLowerCase() === selectedSeries
+      );
+      const sermonSeriesId = seriesObj?.id || null;
+
+      console.log('Series lookup (complete):', {
+        selectedSeries: editedRecommendations.series,
+        foundMatch: seriesObj?.title,
+        sermonSeriesId,
+        availableSeries: seriesOptions.map(s => s.title)
+      });
+
       await api.updateScheduleEntry(currentSermon.id, {
-        series: editedRecommendations.series,
+        sermon_series_id: sermonSeriesId,
         sermon_themefocus: editedRecommendations.theme,
         audience: editedRecommendations.audience,
         seasonholiday: editedRecommendations.season,
-        content_type: editedRecommendations.lessonType,
         key_takeaway: editedRecommendations.keyTakeaway,
         hashtags: editedRecommendations.hashtags,
         sermon_information_added: true
@@ -551,6 +648,41 @@ export default function App() {
     if (currentSermonIndex < sermonsNeedingInfo.length - 1) {
       setCurrentSermonIndex(prev => prev + 1);
     }
+  };
+
+  // Mark sermon as complete without AI analysis (for sermons that don't need full review)
+  const handleMarkComplete = async () => {
+    if (!currentSermon) return;
+
+    setIsSaving(true);
+    try {
+      await api.updateScheduleEntry(currentSermon.id, {
+        sermon_information_added: true
+      });
+
+      // Update local state
+      setSchedule(prev => prev.map(s =>
+        s.id === currentSermon.id
+          ? {
+              ...s,
+              sermon_information_added: true,
+              properties: { ...s.properties, sermon_information_added: true }
+            }
+          : s
+      ));
+
+      setRecommendations(null);
+      setEditedRecommendations({});
+      showToast('Marked as complete!', 'success');
+
+      // Move to next sermon if available
+      if (currentSermonIndex < sermonsNeedingInfo.length - 1) {
+        setCurrentSermonIndex(prev => prev + 1);
+      }
+    } catch (err) {
+      showToast('Failed to mark complete: ' + err.message, 'error');
+    }
+    setIsSaving(false);
   };
 
   // ============================================
@@ -650,7 +782,7 @@ export default function App() {
                   className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gold/30 rounded-lg text-xs sm:text-sm bg-white focus:border-gold outline-none flex-1 sm:flex-none"
                 >
                   <option value="all">All Types</option>
-                  {SCHEDULE_LESSON_TYPES.map(type => (
+                  {LESSON_TYPE_OPTIONS.map(type => (
                     <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
@@ -926,22 +1058,31 @@ export default function App() {
                       </Markdown>
                     </div>
 
-                    <button
-                      onClick={handleAnalyzeSermon}
-                      disabled={isAnalyzing}
-                      className="w-full py-2.5 sm:py-3 mt-3 sm:mt-4 bg-gradient-to-r from-burgundy to-burgundy/80 text-white rounded-lg text-sm sm:text-base font-medium hover:shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 flex-shrink-0"
-                    >
-                      {isAnalyzing ? (
-                        <>
-                          <span className="animate-spin">⏳</span>
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          🤖 Analyze with AI
-                        </>
-                      )}
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-2 mt-3 sm:mt-4 flex-shrink-0">
+                      <button
+                        onClick={handleAnalyzeSermon}
+                        disabled={isAnalyzing || isSaving}
+                        className="flex-1 py-2.5 sm:py-3 bg-gradient-to-r from-burgundy to-burgundy/80 text-white rounded-lg text-sm sm:text-base font-medium hover:shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <span className="animate-spin">⏳</span>
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            🤖 Analyze with AI
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleMarkComplete}
+                        disabled={isAnalyzing || isSaving}
+                        className="flex-1 py-2.5 sm:py-3 bg-sage text-white rounded-lg text-sm sm:text-base font-medium hover:bg-sage/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isSaving ? 'Saving...' : '✓ Mark Complete'}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Recommendations */}
@@ -950,99 +1091,103 @@ export default function App() {
                       Recommendations
                     </h3>
 
-                    {!recommendations ? (
-                      <p className="text-ink/60 text-sm">
-                        Click "Analyze with AI" to get recommendations for this sermon's metadata.
+                    {recommendations?.error && (
+                      <p className="text-burgundy text-sm mb-3">{recommendations.error}</p>
+                    )}
+
+                    <div className="flex flex-col flex-1 overflow-hidden">
+                      <p className="text-ink/50 text-xs mb-3">
+                        {recommendations ? '✓ AI analyzed - review below' : 'Edit existing values or click "Analyze with AI" to auto-fill'}
                       </p>
-                    ) : recommendations.error ? (
-                      <p className="text-burgundy text-sm">{recommendations.error}</p>
-                    ) : (
-                      <div className="flex flex-col flex-1 overflow-hidden">
-                        <div className="space-y-3 flex-1 overflow-y-auto pr-1">
-                          {[
-                            { key: 'series', label: 'Series', options: seriesOptions.length > 0 ? seriesOptions : SERIES_OPTIONS, canAddToApi: true },
-                            { key: 'theme', label: 'Theme', options: THEME_OPTIONS, canAddToApi: false },
-                            { key: 'audience', label: 'Audience', options: AUDIENCE_OPTIONS, canAddToApi: false },
-                            { key: 'season', label: 'Season', options: SEASON_OPTIONS, canAddToApi: false },
-                            { key: 'lessonType', label: 'Type', options: LESSON_TYPE_OPTIONS, canAddToApi: false },
-                          ].map(({ key, label, options, canAddToApi }) => (
-                            <div key={key}>
-                              <label className="block text-xs font-medium text-ink/70 mb-1">{label}</label>
-                              <SelectWithAdd
-                                value={editedRecommendations[key] || ''}
-                                onChange={(value) => setEditedRecommendations(prev => ({ ...prev, [key]: value }))}
-                                options={options}
-                                customOptions={customOptions[key] || []}
-                                onAddCustom={async (newValue) => {
-                                  // For series, also add to Craft database
-                                  if (canAddToApi && key === 'series') {
-                                    try {
-                                      await api.addSeries(newValue);
-                                      setSeriesOptions(prev => [...prev, newValue]);
-                                      showToast(`Series "${newValue}" added!`, 'success');
-                                    } catch (err) {
-                                      showToast('Failed to add series: ' + err.message, 'error');
-                                      return; // Don't add to local options if API failed
-                                    }
-                                  } else {
-                                    // For other fields, just add locally
-                                    setCustomOptions(prev => ({
-                                      ...prev,
-                                      [key]: [...(prev[key] || []), newValue]
-                                    }));
+                      <div className="space-y-3 flex-1 overflow-y-auto pr-1">
+                        {[
+                          { key: 'series', label: 'Series', options: seriesOptions.length > 0 ? seriesOptions.map(s => s.title) : SERIES_OPTIONS, canAddToApi: true },
+                          { key: 'theme', label: 'Theme', options: THEME_OPTIONS, canAddToApi: false },
+                          { key: 'audience', label: 'Audience', options: AUDIENCE_OPTIONS, canAddToApi: false },
+                          { key: 'season', label: 'Season', options: SEASON_OPTIONS, canAddToApi: false },
+                          { key: 'lessonType', label: 'Type', options: LESSON_TYPE_OPTIONS, canAddToApi: false },
+                        ].map(({ key, label, options, canAddToApi }) => (
+                          <div key={key}>
+                            <label className="block text-xs font-medium text-ink/70 mb-1">{label}</label>
+                            <SelectWithAdd
+                              value={editedRecommendations[key] || ''}
+                              onChange={(value) => setEditedRecommendations(prev => ({ ...prev, [key]: value }))}
+                              options={options}
+                              customOptions={customOptions[key] || []}
+                              onAddCustom={async (newValue) => {
+                                // For series, also add to Craft database
+                                if (canAddToApi && key === 'series') {
+                                  try {
+                                    const result = await api.addSeries(newValue);
+                                    // Add as object to match expected format {id, title}
+                                    const newSeriesObj = {
+                                      id: result.result?.items?.[0]?.id || `temp_${Date.now()}`,
+                                      title: newValue
+                                    };
+                                    setSeriesOptions(prev => [...prev, newSeriesObj]);
+                                    showToast(`Series "${newValue}" added!`, 'success');
+                                  } catch (err) {
+                                    showToast('Failed to add series: ' + err.message, 'error');
+                                    return; // Don't add to local options if API failed
                                   }
-                                }}
-                                label={label}
-                              />
-                            </div>
-                          ))}
-
-                          <div>
-                            <label className="block text-xs font-medium text-ink/70 mb-1">Key Takeaway</label>
-                            <input
-                              type="text"
-                              value={editedRecommendations.keyTakeaway || ''}
-                              onChange={(e) => setEditedRecommendations(prev => ({ ...prev, keyTakeaway: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                                } else {
+                                  // For other fields, just add locally
+                                  setCustomOptions(prev => ({
+                                    ...prev,
+                                    [key]: [...(prev[key] || []), newValue]
+                                  }));
+                                }
+                              }}
+                              label={label}
                             />
                           </div>
+                        ))}
 
-                          <div>
-                            <label className="block text-xs font-medium text-ink/70 mb-1">Hashtags</label>
-                            <input
-                              type="text"
-                              value={editedRecommendations.hashtags || ''}
-                              onChange={(e) => setEditedRecommendations(prev => ({ ...prev, hashtags: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
-                              placeholder="#topic/faith, #topic/obedience"
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-xs font-medium text-ink/70 mb-1">Key Takeaway</label>
+                          <input
+                            type="text"
+                            value={editedRecommendations.keyTakeaway || ''}
+                            onChange={(e) => setEditedRecommendations(prev => ({ ...prev, keyTakeaway: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                          />
                         </div>
 
-                        <div className="flex flex-col sm:flex-row gap-2 pt-4 mt-auto">
-                          <button
-                            onClick={handleApprove}
-                            disabled={isSaving}
-                            className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-all disabled:opacity-50 text-sm"
-                          >
-                            {isSaving ? 'Saving...' : '✓ Approve'}
-                          </button>
-                          <button
-                            onClick={handleApproveAndComplete}
-                            disabled={isSaving}
-                            className="flex-1 py-2.5 bg-sage text-white rounded-lg font-medium hover:bg-sage/90 transition-all disabled:opacity-50 text-sm"
-                          >
-                            {isSaving ? 'Saving...' : '✓ Approve & Complete'}
-                          </button>
-                          <button
-                            onClick={handleSkipSermon}
-                            className="flex-1 py-2.5 bg-gray-200 text-ink rounded-lg font-medium hover:bg-gray-300 transition-all text-sm"
-                          >
-                            Skip
-                          </button>
+                        <div>
+                          <label className="block text-xs font-medium text-ink/70 mb-1">Hashtags</label>
+                          <input
+                            type="text"
+                            value={editedRecommendations.hashtags || ''}
+                            onChange={(e) => setEditedRecommendations(prev => ({ ...prev, hashtags: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                            placeholder="#topic/faith, #topic/obedience"
+                          />
                         </div>
                       </div>
-                    )}
+
+                      <div className="flex flex-col sm:flex-row gap-2 pt-4 mt-auto">
+                        <button
+                          onClick={handleApprove}
+                          disabled={isSaving}
+                          className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-all disabled:opacity-50 text-sm"
+                        >
+                          {isSaving ? 'Saving...' : '✓ Approve'}
+                        </button>
+                        <button
+                          onClick={handleApproveAndComplete}
+                          disabled={isSaving}
+                          className="flex-1 py-2.5 bg-sage text-white rounded-lg font-medium hover:bg-sage/90 transition-all disabled:opacity-50 text-sm"
+                        >
+                          {isSaving ? 'Saving...' : '✓ Approve & Complete'}
+                        </button>
+                        <button
+                          onClick={handleSkipSermon}
+                          className="flex-1 py-2.5 bg-gray-200 text-ink rounded-lg font-medium hover:bg-gray-300 transition-all text-sm"
+                        >
+                          Skip
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1078,8 +1223,13 @@ export default function App() {
             seriesOptions={seriesOptions}
             onAddSeries={async (newSeries) => {
               try {
-                await api.addSeries(newSeries);
-                setSeriesOptions(prev => [...prev, newSeries]);
+                const result = await api.addSeries(newSeries);
+                // Add as object to match the expected format {id, title}
+                const newSeriesObj = {
+                  id: result.result?.items?.[0]?.id || `temp_${Date.now()}`,
+                  title: newSeries
+                };
+                setSeriesOptions(prev => [...prev, newSeriesObj]);
                 showToast(`Series "${newSeries}" added!`, 'success');
               } catch (err) {
                 showToast('Failed to add series: ' + err.message, 'error');
@@ -1184,7 +1334,7 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
         <SelectWithAdd
           value={getValue('series')}
           onChange={(value) => updateField('series', value)}
-          options={seriesOptions}
+          options={seriesOptions.map(s => s.title || s)}
           customOptions={[]}
           onAddCustom={async (newValue) => {
             if (onAddSeries) {
@@ -1203,7 +1353,7 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
           className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
           <option value="">Select...</option>
-          {SCHEDULE_LESSON_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          {LESSON_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
 
@@ -1249,9 +1399,11 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
           className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
           <option value="">Select...</option>
-          <option value="draft">Unprepared</option>
+          <option value="Draft">Draft</option>
+          <option value="in progress">In Progress</option>
+          <option value="Complete">Complete</option>
           <option value="Ready to Preach">Ready to Preach</option>
-          <option value="complete">Complete</option>
+          <option value="archive">Archive</option>
         </select>
       </div>
 
@@ -1287,10 +1439,11 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
 function AddEntryForm({ initialDate, onSave, onCancel, isSaving }) {
   const [entry, setEntry] = useState({
     sermon_name: '',
-    lesson_type: 'Sermon AM',
+    lesson_type: 'Sermon',
     preacher: 'Benjamin',
     sermon_date: initialDate || '',
-    special_event: ''
+    special_event: '',
+    status: 'Draft'
   });
 
   return (
@@ -1313,7 +1466,7 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving }) {
           onChange={(e) => setEntry(prev => ({ ...prev, lesson_type: e.target.value }))}
           className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
         >
-          {SCHEDULE_LESSON_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          {LESSON_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
 

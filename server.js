@@ -82,6 +82,16 @@ async function getCollectionSchema(collectionId) {
 }
 
 /**
+ * Update collection schema (to add new single-select options)
+ */
+async function updateCollectionSchema(collectionId, schema) {
+  return await craftRequest(`/collections/${collectionId}/schema`, {
+    method: 'PUT',
+    body: JSON.stringify(schema)
+  });
+}
+
+/**
  * Get collection items from Craft
  */
 async function getCollectionItems(collectionId) {
@@ -90,11 +100,18 @@ async function getCollectionItems(collectionId) {
 
 /**
  * Update collection items in Craft
+ * @param {string} collectionId - The collection ID
+ * @param {Array} items - Items to update
+ * @param {boolean} allowNewSelectOptions - If true, automatically adds new single-select options to schema
  */
-async function updateCollectionItems(collectionId, items) {
+async function updateCollectionItems(collectionId, items, allowNewSelectOptions = false) {
+  const body = { itemsToUpdate: items };
+  if (allowNewSelectOptions) {
+    body.allowNewSelectOptions = true;
+  }
   return await craftRequest(`/collections/${collectionId}/items`, {
     method: 'PUT',
-    body: JSON.stringify({ itemsToUpdate: items })
+    body: JSON.stringify(body)
   });
 }
 
@@ -183,6 +200,57 @@ app.get('/api/collections/:id/schema', async (req, res) => {
   }
 });
 
+// Add a new option to a single-select field in the schema
+app.post('/api/add-field-option', async (req, res) => {
+  try {
+    const { fieldName, newOption } = req.body;
+
+    if (!fieldName || !newOption) {
+      return res.status(400).json({ error: 'fieldName and newOption are required' });
+    }
+
+    if (!COLLECTIONS.schedule) {
+      return res.status(503).json({ error: 'Schedule collection not found' });
+    }
+
+    // Get current schema
+    const schema = await getCollectionSchema(COLLECTIONS.schedule);
+
+    // Find the field in the schema
+    const field = schema.properties?.find(p => p.name === fieldName);
+    if (!field) {
+      return res.status(404).json({ error: `Field '${fieldName}' not found in schema` });
+    }
+
+    // Check if option already exists
+    const existingOptions = field.options || [];
+    if (existingOptions.includes(newOption)) {
+      return res.json({ success: true, message: 'Option already exists', alreadyExists: true });
+    }
+
+    // Add the new option
+    const updatedOptions = [...existingOptions, newOption];
+
+    // Update the schema - only send the field being updated
+    const updatedSchema = {
+      properties: schema.properties.map(p => {
+        if (p.name === fieldName) {
+          return { ...p, options: updatedOptions };
+        }
+        return p;
+      })
+    };
+
+    await updateCollectionSchema(COLLECTIONS.schedule, updatedSchema);
+
+    console.log(`Added option "${newOption}" to field "${fieldName}"`);
+    res.json({ success: true, message: `Added "${newOption}" to ${fieldName}`, options: updatedOptions });
+  } catch (error) {
+    console.error('Failed to add field option:', error);
+    res.status(500).json({ error: 'Failed to add field option', details: error.message });
+  }
+});
+
 // Get all sermons
 app.get('/api/sermons', async (req, res) => {
   try {
@@ -239,27 +307,45 @@ app.get('/api/schedule', async (req, res) => {
     const rawSchedule = result.items || result;
 
     // Flatten properties into top-level fields for frontend compatibility
-    const schedule = rawSchedule.map(item => ({
-      id: item.id,
-      sermon_name: item.sermon_name || item.title || '',
-      lesson_type: item.properties?.lesson_type || '',
-      preacher: item.properties?.preacher || '',
-      sermon_date: item.properties?.sermon_date || '',
-      special_event: item.properties?.special_event || '',
-      status: item.properties?.status || '',
-      notes: item.properties?.notes || '',
-      // New merged fields from Sermons collection
-      content: item.properties?.content || '',
-      content_type: item.properties?.content_type || '',
-      sermon_information_added: item.properties?.sermon_information_added || false,
-      series: item.properties?.series || '',
-      sermon_themefocus: item.properties?.sermon_themefocus || '',
-      audience: item.properties?.audience || '',
-      seasonholiday: item.properties?.seasonholiday || '',
-      key_takeaway: item.properties?.key_takeaway || '',
-      hashtags: item.properties?.hashtags || '',
-      properties: item.properties // Keep original for reference
-    }));
+    const schedule = rawSchedule.map(item => {
+      // Extract content from document body (array of blocks with markdown)
+      let contentMarkdown = '';
+      if (Array.isArray(item.content)) {
+        contentMarkdown = item.content
+          .filter(block => block.markdown)
+          .map(block => block.markdown)
+          .join('\n');
+      } else if (item.contentMarkdown) {
+        contentMarkdown = item.contentMarkdown;
+      } else if (typeof item.content === 'string') {
+        contentMarkdown = item.content;
+      }
+
+      return {
+        id: item.id,
+        sermon_name: item.sermon_name || item.title || '',
+        content: contentMarkdown, // Document body content for preview
+        lesson_type: item.properties?.lesson_type || '',
+        preacher: item.properties?.preacher || '',
+        sermon_date: item.properties?.sermon_date || '',
+        special_event: item.properties?.special_event || '',
+        status: item.properties?.status || '',
+        notes: item.properties?.notes || '',
+        // Series is a RELATION field - extract title and blockId
+        series: item.properties?.sermon_series?.relations?.[0]?.title || '',
+        sermon_series_id: item.properties?.sermon_series?.relations?.[0]?.blockId || null,
+        // Other metadata fields
+        sermon_information_added: item.properties?.sermon_information_added || false,
+        sermon_themefocus: item.properties?.sermon_themefocus || '',
+        audience: item.properties?.audience || '',
+        seasonholiday: item.properties?.seasonholiday || '',
+        key_takeaway: item.properties?.key_takeaway || '',
+        hashtags: item.properties?.hashtags || '',
+        primary_text: item.properties?.primary_text || '',
+        series_number: item.properties?.series_number || null,
+        properties: item.properties // Keep original for reference
+      };
+    });
 
     scheduleCache = schedule;
     res.json(schedule);
@@ -376,24 +462,34 @@ app.put('/api/schedule/:id', async (req, res) => {
     if (updates.lesson_type) craftUpdates.properties.lesson_type = updates.lesson_type;
     if (updates.preacher) craftUpdates.properties.preacher = updates.preacher;
     if (updates.sermon_date) craftUpdates.properties.sermon_date = updates.sermon_date;
-    if (updates.special_event) craftUpdates.properties.special_event = updates.special_event;
+    if (updates.special_event !== undefined) craftUpdates.properties.special_event = updates.special_event;
     if (updates.status) craftUpdates.properties.status = updates.status;
-    if (updates.notes) craftUpdates.properties.notes = updates.notes;
-    if (updates.series) craftUpdates.properties.series = updates.series;
+    if (updates.notes !== undefined) craftUpdates.properties.notes = updates.notes;
 
-    // New merged fields from Sermons collection
-    if (updates.content !== undefined) craftUpdates.properties.content = updates.content;
-    if (updates.content_type) craftUpdates.properties.content_type = updates.content_type;
+    // Series is a RELATION field - need to send as sermon_series with blockId
+    if (updates.sermon_series_id) {
+      craftUpdates.properties.sermon_series = {
+        relations: [{ blockId: updates.sermon_series_id }]
+      };
+    } else if (updates.sermon_series_id === null || updates.sermon_series_id === '') {
+      // Clear the series relation
+      craftUpdates.properties.sermon_series = { relations: [] };
+    }
+
+    // Metadata fields
     if (updates.sermon_information_added !== undefined) {
       craftUpdates.properties.sermon_information_added = updates.sermon_information_added;
     }
-    if (updates.sermon_themefocus) craftUpdates.properties.sermon_themefocus = updates.sermon_themefocus;
-    if (updates.audience) craftUpdates.properties.audience = updates.audience;
-    if (updates.seasonholiday) craftUpdates.properties.seasonholiday = updates.seasonholiday;
-    if (updates.key_takeaway) craftUpdates.properties.key_takeaway = updates.key_takeaway;
-    if (updates.hashtags) craftUpdates.properties.hashtags = updates.hashtags;
+    if (updates.sermon_themefocus !== undefined) craftUpdates.properties.sermon_themefocus = updates.sermon_themefocus;
+    if (updates.audience !== undefined) craftUpdates.properties.audience = updates.audience;
+    if (updates.seasonholiday !== undefined) craftUpdates.properties.seasonholiday = updates.seasonholiday;
+    if (updates.key_takeaway !== undefined) craftUpdates.properties.key_takeaway = updates.key_takeaway;
+    if (updates.hashtags !== undefined) craftUpdates.properties.hashtags = updates.hashtags;
+    if (updates.primary_text !== undefined) craftUpdates.properties.primary_text = updates.primary_text;
+    if (updates.series_number !== undefined) craftUpdates.properties.series_number = updates.series_number;
 
-    const result = await updateCollectionItems(COLLECTIONS.schedule, [craftUpdates]);
+    // Use allowNewSelectOptions to automatically add any new theme/audience/season values to Craft schema
+    const result = await updateCollectionItems(COLLECTIONS.schedule, [craftUpdates], true);
 
     res.json({ success: true, result });
   } catch (error) {
@@ -414,17 +510,21 @@ app.post('/api/schedule', async (req, res) => {
       lesson_type: entry.lesson_type || '',
       preacher: entry.preacher || '',
       sermon_date: entry.sermon_date || '',
-      status: entry.status || 'idea'
+      status: entry.status || 'Draft'
     };
 
     // Only add optional fields if they have values (Craft doesn't accept null)
     if (entry.special_event) properties.special_event = entry.special_event;
-    if (entry.series) properties.series = entry.series;
     if (entry.notes) properties.notes = entry.notes;
 
-    // New merged fields from Sermons collection
-    if (entry.content) properties.content = entry.content;
-    if (entry.content_type) properties.content_type = entry.content_type;
+    // Series is a RELATION field - need to send as sermon_series with blockId
+    if (entry.sermon_series_id) {
+      properties.sermon_series = {
+        relations: [{ blockId: entry.sermon_series_id }]
+      };
+    }
+
+    // Metadata fields
     if (entry.sermon_information_added !== undefined) {
       properties.sermon_information_added = entry.sermon_information_added;
     }
@@ -433,6 +533,8 @@ app.post('/api/schedule', async (req, res) => {
     if (entry.seasonholiday) properties.seasonholiday = entry.seasonholiday;
     if (entry.key_takeaway) properties.key_takeaway = entry.key_takeaway;
     if (entry.hashtags) properties.hashtags = entry.hashtags;
+    if (entry.primary_text) properties.primary_text = entry.primary_text;
+    if (entry.series_number !== undefined) properties.series_number = entry.series_number;
 
     const craftEntry = {
       sermon_name: entry.sermon_name || '',
@@ -633,30 +735,84 @@ app.post('/api/schedule/batch-update', async (req, res) => {
 app.post('/api/analyze-sermon', async (req, res) => {
   try {
     const { title, content, options } = req.body;
-    
+
     const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
     if (!CLAUDE_API_KEY) {
       return res.status(500).json({ error: 'Claude API key not configured' });
     }
-    
-    const prompt = `Analyze this sermon and recommend classification values.
 
-CRITICAL: You MUST use EXACTLY one of the provided options for each field. Do not create new values.
+    const systemPrompt = `You are a sermon classification assistant for a Christian missionary ministry in Thailand. Your job is to carefully analyze sermon content and accurately categorize it based on its main themes, purpose, and teaching focus.
+
+UNDERSTANDING THE SERIES CATEGORIES:
+- "Christianity Explored" - Introductory teachings for seekers/new believers about basic Christian faith
+- "How to Preach" - Training materials for preachers on sermon preparation and delivery
+- "Preach the Gospel" - Evangelistic messages focused on sharing the gospel
+- "Foundational Discipleship" - Core teachings for growing believers (prayer, Bible study, spiritual disciplines)
+- "Gospel & Redemption" - Deep theological teachings on salvation, atonement, grace
+- "Daily Christian Living" - Practical application of faith in everyday life, work, relationships
+- "Special & Seasonal" - Holiday messages (Christmas, Easter, etc.) or special occasion sermons
+- "Other" - Only if nothing else fits
+
+UNDERSTANDING THEMES:
+- "Faith" - Trusting God, believing His promises, walking by faith
+- "Obedience" - Following God's commands, submission to His will
+- "Grace" - Unmerited favor, God's love despite our failures
+- "Worship" - Praising God, honoring Him, devotion
+- "Evangelism" - Sharing faith, witnessing, reaching the lost
+- "Discipleship" - Growing in Christ, spiritual maturity, following Jesus
+- "Redemption" - Being saved, forgiveness, restoration
+- "Character" - Developing godly character traits
+- "Work & Purpose" - Vocation, calling, serving God through work
+- "Community/Family" - Church life, family relationships, fellowship
+
+CLASSIFICATION GUIDANCE:
+1. Read the ENTIRE sermon content carefully before classifying
+2. Identify the MAIN point/purpose, not just surface-level keywords
+3. Consider: What is the preacher trying to accomplish? What should listeners DO or BELIEVE?
+4. For Theme: What is the dominant spiritual concept being taught?
+5. For Series: Where would this sermon best fit in a teaching curriculum?
+6. For Key Takeaway: Summarize the ONE main thing listeners should remember
+
+CRITICAL RULES - YOU MUST FOLLOW THESE:
+- For Series, Theme, Audience, Season, and Lesson Type: You MUST use EXACTLY one of the provided options - copy/paste the exact text
+- NEVER create new values or variations - only use what is listed
+- If unsure, pick the closest match from the provided options
+- For Theme: ONLY use these exact values: Faith, Obedience, Grace, Worship, Evangelism, Discipleship, Redemption, Character, Work & Purpose, Community/Family`;
+
+    const userPrompt = `Analyze this sermon and classify it accurately.
 
 SERMON TITLE: ${title}
-SERMON CONTENT: ${content}
 
-VALID OPTIONS (use ONLY these exact values):
-- Series (pick ONE): ${options.series.join(' | ')}
-- Theme (pick ONE): ${options.themes.join(' | ')}
-- Audience (pick ONE): ${options.audiences.join(' | ')}
-- Season (pick ONE): ${options.seasons.join(' | ')}
-- Lesson Type (pick ONE): ${options.lessonTypes.join(' | ')}
+SERMON CONTENT:
+${content ? content.substring(0, 8000) : 'No content available - classify based on title only'}
 
-AVAILABLE HASHTAGS: ${options.hashtags.join(', ')}
+---
 
-Return ONLY valid JSON with this exact structure:
-{"series":"<exact value from Series options>","theme":"<exact value from Theme options>","audience":"<exact value from Audience options>","season":"<exact value from Season options>","lessonType":"<exact value from Lesson Type options>","keyTakeaway":"<one sentence summary>","hashtags":"#topic/x, #topic/y"}`;
+VALID OPTIONS (you MUST use exactly one of these for each field):
+
+SERIES OPTIONS: ${options.series.join(' | ')}
+
+THEME OPTIONS: ${options.themes.join(' | ')}
+
+AUDIENCE OPTIONS: ${options.audiences.join(' | ')}
+
+SEASON OPTIONS: ${options.seasons.join(' | ')}
+
+LESSON TYPE OPTIONS: ${options.lessonTypes.join(' | ')}
+
+AVAILABLE HASHTAGS (pick 2-4 most relevant):
+${options.hashtags.join(', ')}
+
+---
+
+First, briefly explain your reasoning for each classification (2-3 sentences total).
+Then provide the JSON output.
+
+RESPOND WITH THIS EXACT FORMAT:
+REASONING: [Your brief explanation]
+
+JSON:
+{"series":"<value>","theme":"<value>","audience":"<value>","season":"<value>","lessonType":"<value>","keyTakeaway":"<one compelling sentence>","hashtags":"#topic/x, #topic/y, #topic/z"}`;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -667,17 +823,44 @@ Return ONLY valid JSON with this exact structure:
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }]
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
       })
     });
-    
+
     const data = await response.json();
-    const text = data.content[0].text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const parsed = JSON.parse(text);
-    
+
+    if (!data.content || !data.content[0]) {
+      console.error('Claude API error:', data);
+      return res.status(500).json({ error: 'Invalid response from Claude API', details: JSON.stringify(data) });
+    }
+
+    const text = data.content[0].text;
+
+    // Extract JSON from response (look for JSON: marker or ```json block)
+    let jsonStr = text;
+    if (text.includes('JSON:')) {
+      jsonStr = text.split('JSON:')[1];
+    }
+    jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    // Find the JSON object
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('Could not find JSON in response:', text);
+      return res.status(500).json({ error: 'Could not parse Claude response' });
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // Note: We don't validate/restrict themes, audiences, etc. because users can add
+    // custom options to Craft. The AI suggestions are passed through as-is, and the
+    // frontend allows adding new values to Craft's single-select fields.
+
     res.json(parsed);
   } catch (error) {
+    console.error('Analyze sermon error:', error);
     res.status(500).json({ error: 'Failed to analyze sermon', details: error.message });
   }
 });
