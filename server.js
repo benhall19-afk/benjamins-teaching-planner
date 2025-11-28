@@ -42,6 +42,25 @@ let scheduleCache = [];
 let hashtagsCache = [];
 
 // ============================================
+// RATING CONVERSION HELPERS
+// ============================================
+
+// Craft stores ratings as star emoji strings: "⭐️", "⭐️⭐️", etc.
+const STAR_EMOJI = '⭐️';
+
+function starsToNumber(starString) {
+  if (!starString) return 0;
+  // Count the star emojis in the string
+  const matches = starString.match(/⭐️/g);
+  return matches ? matches.length : 0;
+}
+
+function numberToStars(num) {
+  if (!num || num < 1 || num > 5) return '';
+  return STAR_EMOJI.repeat(num);
+}
+
+// ============================================
 // CRAFT API HELPERS
 // ============================================
 
@@ -331,6 +350,7 @@ app.get('/api/schedule', async (req, res) => {
         special_event: item.properties?.special_event || '',
         status: item.properties?.status || '',
         notes: item.properties?.notes || '',
+        rating: starsToNumber(item.properties?.rating),
         // Series is a RELATION field - extract title and blockId
         series: item.properties?.sermon_series?.relations?.[0]?.title || '',
         sermon_series_id: item.properties?.sermon_series?.relations?.[0]?.blockId || null,
@@ -465,6 +485,7 @@ app.put('/api/schedule/:id', async (req, res) => {
     if (updates.special_event !== undefined) craftUpdates.properties.special_event = updates.special_event;
     if (updates.status) craftUpdates.properties.status = updates.status;
     if (updates.notes !== undefined) craftUpdates.properties.notes = updates.notes;
+    if (updates.rating !== undefined) craftUpdates.properties.rating = numberToStars(updates.rating);
 
     // Series is a RELATION field - need to send as sermon_series with blockId
     if (updates.sermon_series_id) {
@@ -807,7 +828,7 @@ SEASON OPTIONS: ${options.seasons.join(' | ')}
 
 LESSON TYPE OPTIONS: ${options.lessonTypes.join(' | ')}
 
-AVAILABLE HASHTAGS (pick 2-4 most relevant):
+AVAILABLE HASHTAGS (pick 6 most relevant):
 ${options.hashtags.join(', ')}
 
 ---
@@ -819,7 +840,7 @@ RESPOND WITH THIS EXACT FORMAT:
 REASONING: [Your brief explanation]
 
 JSON:
-{"primaryText":"<Bible reference(s)>","series":"<value>","theme":"<value>","audience":"<value>","season":"<value>","lessonType":"<value>","keyTakeaway":"<one compelling sentence>","hashtags":"#topic/x, #topic/y, #topic/z"}`;
+{"primaryText":"<Bible reference(s)>","series":"<value>","theme":"<value>","audience":"<value>","season":"<value>","lessonType":"<value>","keyTakeaway":"<one compelling sentence>","hashtags":"#topic/a, #topic/b, #topic/c, #topic/d, #topic/e, #topic/f"}`;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -860,6 +881,9 @@ JSON:
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
+
+    // Debug logging to see what AI returned
+    console.log('AI Analysis Response:', JSON.stringify(parsed, null, 2));
 
     // Note: We don't validate/restrict themes, audiences, etc. because users can add
     // custom options to Craft. The AI suggestions are passed through as-is, and the

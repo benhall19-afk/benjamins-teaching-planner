@@ -224,11 +224,20 @@ export default function App() {
 
   const currentSermon = sermonsNeedingInfo[currentSermonIndex];
 
+  // Keep index in bounds when list shrinks (after completing sermons)
+  useEffect(() => {
+    if (sermonsNeedingInfo.length > 0 && currentSermonIndex >= sermonsNeedingInfo.length) {
+      setCurrentSermonIndex(sermonsNeedingInfo.length - 1);
+    }
+  }, [sermonsNeedingInfo.length, currentSermonIndex]);
+
   // Initialize editedRecommendations with existing sermon data when sermon changes
   useEffect(() => {
     if (currentSermon) {
       setEditedRecommendations({
         sermonDate: currentSermon.sermon_date || currentSermon.properties?.sermon_date || '',
+        notes: currentSermon.notes || currentSermon.properties?.notes || '',
+        rating: currentSermon.rating || currentSermon.properties?.rating || 0,
         primaryText: currentSermon.primary_text || currentSermon.properties?.primary_text || '',
         series: currentSermon.series || currentSermon.properties?.sermon_series?.relations?.[0]?.title || '',
         theme: currentSermon.sermon_themefocus || currentSermon.properties?.sermon_themefocus || '',
@@ -519,7 +528,13 @@ export default function App() {
       };
 
       setRecommendations(mergedResult);
-      setEditedRecommendations(mergedResult);
+      // Preserve existing sermonDate, notes, and rating - AI doesn't change them
+      setEditedRecommendations(prev => ({
+        ...mergedResult,
+        sermonDate: prev.sermonDate || currentSermon.sermon_date || currentSermon.properties?.sermon_date || '',
+        notes: prev.notes || currentSermon.notes || currentSermon.properties?.notes || '',
+        rating: prev.rating || currentSermon.rating || currentSermon.properties?.rating || 0
+      }));
     } catch (err) {
       showToast('Analysis failed: ' + err.message, 'error');
       setRecommendations({ error: 'Analysis failed. Please try again.' });
@@ -551,6 +566,8 @@ export default function App() {
 
       await api.updateScheduleEntry(currentSermon.id, {
         sermon_date: editedRecommendations.sermonDate,
+        notes: editedRecommendations.notes,
+        rating: editedRecommendations.rating || 0,
         primary_text: editedRecommendations.primaryText,
         sermon_series_id: sermonSeriesId,
         sermon_themefocus: editedRecommendations.theme,
@@ -567,6 +584,8 @@ export default function App() {
           ? {
               ...s,
               sermon_date: editedRecommendations.sermonDate,
+              notes: editedRecommendations.notes,
+              rating: editedRecommendations.rating,
               primary_text: editedRecommendations.primaryText,
               series: editedRecommendations.series,
               sermon_themefocus: editedRecommendations.theme,
@@ -575,7 +594,7 @@ export default function App() {
               content_type: editedRecommendations.lessonType,
               key_takeaway: editedRecommendations.keyTakeaway,
               hashtags: editedRecommendations.hashtags,
-              properties: { ...s.properties, sermon_date: editedRecommendations.sermonDate, primary_text: editedRecommendations.primaryText }
+              properties: { ...s.properties, sermon_date: editedRecommendations.sermonDate, notes: editedRecommendations.notes, rating: editedRecommendations.rating, primary_text: editedRecommendations.primaryText }
             }
           : s
       ));
@@ -611,6 +630,8 @@ export default function App() {
 
       await api.updateScheduleEntry(currentSermon.id, {
         sermon_date: editedRecommendations.sermonDate,
+        notes: editedRecommendations.notes,
+        rating: editedRecommendations.rating || 0,
         primary_text: editedRecommendations.primaryText,
         sermon_series_id: sermonSeriesId,
         sermon_themefocus: editedRecommendations.theme,
@@ -627,6 +648,8 @@ export default function App() {
           ? {
               ...s,
               sermon_date: editedRecommendations.sermonDate,
+              notes: editedRecommendations.notes,
+              rating: editedRecommendations.rating,
               primary_text: editedRecommendations.primaryText,
               series: editedRecommendations.series,
               sermon_themefocus: editedRecommendations.theme,
@@ -636,7 +659,7 @@ export default function App() {
               key_takeaway: editedRecommendations.keyTakeaway,
               hashtags: editedRecommendations.hashtags,
               sermon_information_added: true,
-              properties: { ...s.properties, sermon_date: editedRecommendations.sermonDate, primary_text: editedRecommendations.primaryText, sermon_information_added: true }
+              properties: { ...s.properties, sermon_date: editedRecommendations.sermonDate, notes: editedRecommendations.notes, rating: editedRecommendations.rating, primary_text: editedRecommendations.primaryText, sermon_information_added: true }
             }
           : s
       ));
@@ -644,11 +667,7 @@ export default function App() {
       setRecommendations(null);
       setEditedRecommendations({});
       showToast('Sermon information saved and marked complete!', 'success');
-
-      // Move to next sermon if available
-      if (currentSermonIndex < sermonsNeedingInfo.length - 1) {
-        setCurrentSermonIndex(prev => prev + 1);
-      }
+      // Don't advance index - the next sermon slides into current position automatically
     } catch (err) {
       showToast('Failed to save: ' + err.message, 'error');
     }
@@ -687,11 +706,7 @@ export default function App() {
       setRecommendations(null);
       setEditedRecommendations({});
       showToast('Marked as complete!', 'success');
-
-      // Move to next sermon if available
-      if (currentSermonIndex < sermonsNeedingInfo.length - 1) {
-        setCurrentSermonIndex(prev => prev + 1);
-      }
+      // Don't advance index - the next sermon slides into current position automatically
     } catch (err) {
       showToast('Failed to mark complete: ' + err.message, 'error');
     }
@@ -1113,7 +1128,7 @@ export default function App() {
                         {recommendations ? '✓ AI analyzed - review below' : 'Edit existing values or click "Analyze with AI" to auto-fill'}
                       </p>
                       <div className="space-y-3 flex-1 overflow-y-auto pr-1">
-                        {/* Date picker */}
+                        {/* Date picker - not changed by AI */}
                         <div>
                           <label className="block text-xs font-medium text-ink/70 mb-1">Date</label>
                           <input
@@ -1122,6 +1137,48 @@ export default function App() {
                             onChange={(e) => setEditedRecommendations(prev => ({ ...prev, sermonDate: e.target.value }))}
                             className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
                           />
+                        </div>
+
+                        {/* Notes - not changed by AI */}
+                        <div>
+                          <label className="block text-xs font-medium text-ink/70 mb-1">Notes</label>
+                          <textarea
+                            value={editedRecommendations.notes || ''}
+                            onChange={(e) => setEditedRecommendations(prev => ({ ...prev, notes: e.target.value }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none resize-y"
+                            placeholder="Review notes about how the sermon went..."
+                          />
+                        </div>
+
+                        {/* Rating - not changed by AI */}
+                        <div>
+                          <label className="block text-xs font-medium text-ink/70 mb-1">Rating</label>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(star => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setEditedRecommendations(prev => ({ ...prev, rating: star }))}
+                                className={`text-2xl transition-all hover:scale-110 ${
+                                  (editedRecommendations.rating || 0) >= star
+                                    ? 'opacity-100'
+                                    : 'opacity-30 hover:opacity-50'
+                                }`}
+                              >
+                                ⭐
+                              </button>
+                            ))}
+                            {editedRecommendations.rating > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setEditedRecommendations(prev => ({ ...prev, rating: 0 }))}
+                                className="ml-2 text-xs text-ink/50 hover:text-ink/70"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Primary Text - Bible passages */}
