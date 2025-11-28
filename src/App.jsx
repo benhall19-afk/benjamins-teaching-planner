@@ -229,6 +229,7 @@ export default function App() {
     if (currentSermon) {
       setEditedRecommendations({
         sermonDate: currentSermon.sermon_date || currentSermon.properties?.sermon_date || '',
+        primaryText: currentSermon.primary_text || currentSermon.properties?.primary_text || '',
         series: currentSermon.series || currentSermon.properties?.sermon_series?.relations?.[0]?.title || '',
         theme: currentSermon.sermon_themefocus || currentSermon.properties?.sermon_themefocus || '',
         audience: currentSermon.audience || currentSermon.properties?.audience || '',
@@ -481,6 +482,7 @@ export default function App() {
 
     // Get existing values from the entry to pre-populate
     const existingValues = {
+      primaryText: currentSermon.primary_text || currentSermon.properties?.primary_text || '',
       series: currentSermon.series || currentSermon.properties?.series || '',
       theme: currentSermon.sermon_themefocus || currentSermon.properties?.sermon_themefocus || '',
       audience: currentSermon.audience || currentSermon.properties?.audience || '',
@@ -506,6 +508,7 @@ export default function App() {
 
       // Merge AI results with existing values - AI only fills blank fields
       const mergedResult = {
+        primaryText: existingValues.primaryText || result.primaryText,
         series: existingValues.series || result.series,
         theme: existingValues.theme || result.theme,
         audience: existingValues.audience || result.audience,
@@ -548,6 +551,7 @@ export default function App() {
 
       await api.updateScheduleEntry(currentSermon.id, {
         sermon_date: editedRecommendations.sermonDate,
+        primary_text: editedRecommendations.primaryText,
         sermon_series_id: sermonSeriesId,
         sermon_themefocus: editedRecommendations.theme,
         audience: editedRecommendations.audience,
@@ -563,6 +567,7 @@ export default function App() {
           ? {
               ...s,
               sermon_date: editedRecommendations.sermonDate,
+              primary_text: editedRecommendations.primaryText,
               series: editedRecommendations.series,
               sermon_themefocus: editedRecommendations.theme,
               audience: editedRecommendations.audience,
@@ -570,7 +575,7 @@ export default function App() {
               content_type: editedRecommendations.lessonType,
               key_takeaway: editedRecommendations.keyTakeaway,
               hashtags: editedRecommendations.hashtags,
-              properties: { ...s.properties, sermon_date: editedRecommendations.sermonDate }
+              properties: { ...s.properties, sermon_date: editedRecommendations.sermonDate, primary_text: editedRecommendations.primaryText }
             }
           : s
       ));
@@ -606,6 +611,7 @@ export default function App() {
 
       await api.updateScheduleEntry(currentSermon.id, {
         sermon_date: editedRecommendations.sermonDate,
+        primary_text: editedRecommendations.primaryText,
         sermon_series_id: sermonSeriesId,
         sermon_themefocus: editedRecommendations.theme,
         audience: editedRecommendations.audience,
@@ -621,6 +627,7 @@ export default function App() {
           ? {
               ...s,
               sermon_date: editedRecommendations.sermonDate,
+              primary_text: editedRecommendations.primaryText,
               series: editedRecommendations.series,
               sermon_themefocus: editedRecommendations.theme,
               audience: editedRecommendations.audience,
@@ -629,7 +636,7 @@ export default function App() {
               key_takeaway: editedRecommendations.keyTakeaway,
               hashtags: editedRecommendations.hashtags,
               sermon_information_added: true,
-              properties: { ...s.properties, sermon_date: editedRecommendations.sermonDate, sermon_information_added: true }
+              properties: { ...s.properties, sermon_date: editedRecommendations.sermonDate, primary_text: editedRecommendations.primaryText, sermon_information_added: true }
             }
           : s
       ));
@@ -1114,6 +1121,18 @@ export default function App() {
                             value={editedRecommendations.sermonDate || ''}
                             onChange={(e) => setEditedRecommendations(prev => ({ ...prev, sermonDate: e.target.value }))}
                             className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                          />
+                        </div>
+
+                        {/* Primary Text - Bible passages */}
+                        <div>
+                          <label className="block text-xs font-medium text-ink/70 mb-1">Primary Text</label>
+                          <input
+                            type="text"
+                            value={editedRecommendations.primaryText || ''}
+                            onChange={(e) => setEditedRecommendations(prev => ({ ...prev, primaryText: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                            placeholder="e.g., John 3:16, Romans 8:28-30"
                           />
                         </div>
 

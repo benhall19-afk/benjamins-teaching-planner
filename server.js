@@ -773,6 +773,13 @@ CLASSIFICATION GUIDANCE:
 5. For Series: Where would this sermon best fit in a teaching curriculum?
 6. For Key Takeaway: Summarize the ONE main thing listeners should remember
 
+PRIMARY TEXT IDENTIFICATION:
+- Identify the main Bible passage(s) that the sermon is based on
+- List the primary scripture reference(s) in standard format (e.g., "John 3:16" or "Romans 8:28-30")
+- If there are multiple main passages, list them separated by commas (e.g., "Matthew 5:1-12, Luke 6:20-26")
+- Only include passages that are central to the sermon's message, not every verse mentioned
+- If the sermon is topical without a clear primary text, use "Topical" or leave blank
+
 CRITICAL RULES - YOU MUST FOLLOW THESE:
 - For Series, Theme, Audience, Season, and Lesson Type: You MUST use EXACTLY one of the provided options - copy/paste the exact text
 - NEVER create new values or variations - only use what is listed
@@ -812,7 +819,7 @@ RESPOND WITH THIS EXACT FORMAT:
 REASONING: [Your brief explanation]
 
 JSON:
-{"series":"<value>","theme":"<value>","audience":"<value>","season":"<value>","lessonType":"<value>","keyTakeaway":"<one compelling sentence>","hashtags":"#topic/x, #topic/y, #topic/z"}`;
+{"primaryText":"<Bible reference(s)>","series":"<value>","theme":"<value>","audience":"<value>","season":"<value>","lessonType":"<value>","keyTakeaway":"<one compelling sentence>","hashtags":"#topic/x, #topic/y, #topic/z"}`;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
