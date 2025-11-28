@@ -104,6 +104,416 @@ function SelectWithAdd({ value, onChange, options, customOptions, onAddCustom, l
 }
 
 // ============================================
+// SERIES TIMELINE COMPONENT
+// ============================================
+
+function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeriesUpdate, onNavigateMonth, onAddSeries }) {
+  const [selectedSeries, setSelectedSeries] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [dragging, setDragging] = useState(null);
+
+  // Generate 12 months centered on current month
+  const months = useMemo(() => {
+    const result = [];
+    const centerDate = new Date(currentDate);
+    // Start 5 months before current month
+    centerDate.setMonth(centerDate.getMonth() - 5);
+
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(centerDate);
+      d.setMonth(d.getMonth() + i);
+      result.push({
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        label: MONTH_NAMES[d.getMonth()].substring(0, 3),
+        fullLabel: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`,
+        isCurrent: d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear()
+      });
+    }
+    return result;
+  }, [currentDate]);
+
+  // Filter series with dates only
+  const seriesWithDates = useMemo(() => {
+    return series.filter(s => s.startDate && s.endDate);
+  }, [series]);
+
+  const seriesWithoutDates = useMemo(() => {
+    return series.filter(s => !s.startDate || !s.endDate);
+  }, [series]);
+
+  // Count sermons per series
+  const sermonCountBySeries = useMemo(() => {
+    return schedule.reduce((acc, entry) => {
+      if (entry.sermon_series_id) {
+        if (!acc[entry.sermon_series_id]) {
+          acc[entry.sermon_series_id] = { total: 0, complete: 0, sermons: [] };
+        }
+        acc[entry.sermon_series_id].total++;
+        acc[entry.sermon_series_id].sermons.push(entry);
+        if (entry.status === 'Complete' || entry.status === 'Ready to Preach') {
+          acc[entry.sermon_series_id].complete++;
+        }
+      }
+      return acc;
+    }, {});
+  }, [schedule]);
+
+  // Count Sundays in date range
+  const getSundaysInRange = (startStr, endStr) => {
+    if (!startStr || !endStr) return 0;
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    let count = 0;
+    const current = new Date(start);
+    while (current <= end) {
+      if (current.getDay() === 0) count++;
+      current.setDate(current.getDate() + 1);
+    }
+    return count;
+  };
+
+  // Calculate position for a date within the timeline
+  const getPositionForDate = (dateStr) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    const startMonth = months[0];
+    const startDate = new Date(startMonth.year, startMonth.month, 1);
+    const endMonth = months[months.length - 1];
+    const endDate = new Date(endMonth.year, endMonth.month + 1, 0);
+
+    const totalDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
+    const dayPosition = (date - startDate) / (1000 * 60 * 60 * 24);
+
+    return Math.max(0, Math.min(100, (dayPosition / totalDays) * 100));
+  };
+
+  // Format date for display
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (selectedSeries && !e.target.closest('.series-popover') && !e.target.closest('.series-bar')) {
+        setSelectedSeries(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [selectedSeries]);
+
+  if (seriesWithDates.length === 0 && seriesWithoutDates.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-md border border-gold/20 p-3 sm:p-4 mb-4 relative">
+      {/* Header with + button */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-ink/70">Series Timeline</h3>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="w-7 h-7 rounded-full bg-gold/20 hover:bg-gold/40 text-gold flex items-center justify-center transition-colors text-lg"
+          title="Add series to timeline"
+        >
+          +
+        </button>
+      </div>
+
+      {/* Month headers */}
+      <div className="flex border-b border-gold/20 pb-2 mb-3">
+        {months.map((m, i) => (
+          <div
+            key={`${m.year}-${m.month}`}
+            className={`flex-1 text-center text-xs cursor-pointer hover:text-gold transition-colors ${
+              m.isCurrent ? 'font-bold text-gold' : 'text-ink/60'
+            }`}
+            onClick={() => onNavigateMonth(new Date(m.year, m.month, 1))}
+            title={m.fullLabel}
+          >
+            {m.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Series bars */}
+      <div className="relative min-h-16 space-y-2">
+        {seriesWithDates.map(s => {
+          const startPos = getPositionForDate(s.startDate);
+          const endPos = getPositionForDate(s.endDate);
+          const counts = sermonCountBySeries[s.id] || { total: 0, complete: 0, sermons: [] };
+          const totalSundays = getSundaysInRange(s.startDate, s.endDate);
+
+          if (startPos === null || endPos === null || startPos >= 100 || endPos <= 0) {
+            return null;
+          }
+
+          const width = Math.max(5, endPos - startPos);
+          const left = Math.max(0, startPos);
+
+          return (
+            <div
+              key={s.id}
+              className="series-bar relative h-7 cursor-pointer group"
+              style={{
+                marginLeft: `${left}%`,
+                width: `${Math.min(width, 100 - left)}%`
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedSeries(selectedSeries?.id === s.id ? null : s);
+              }}
+            >
+              <div
+                className={`absolute inset-0 rounded-full px-2 py-1 text-white text-xs flex items-center justify-between overflow-hidden transition-all ${
+                  selectedSeries?.id === s.id ? 'bg-burgundy ring-2 ring-gold' : 'bg-burgundy/80 hover:bg-burgundy'
+                }`}
+              >
+                <span className="truncate font-medium">{s.title}</span>
+                <span className="text-white/80 whitespace-nowrap ml-1">
+                  ({counts.total}/{totalSundays})
+                </span>
+              </div>
+            </div>
+          );
+        })}
+
+        {seriesWithDates.length === 0 && (
+          <div className="text-center text-ink/40 text-sm py-4">
+            No series with dates. Click + to add one.
+          </div>
+        )}
+      </div>
+
+      {/* Series Popover */}
+      {selectedSeries && (
+        <div
+          className="series-popover absolute z-50 bg-white rounded-lg shadow-xl border border-gold/30 p-4 w-72"
+          style={{
+            left: '50%',
+            transform: 'translateX(-50%)',
+            top: '100%',
+            marginTop: '8px'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="font-semibold text-ink mb-1">{selectedSeries.title}</div>
+          <div className="text-xs text-ink/60 mb-3">
+            {formatDate(selectedSeries.startDate)} → {formatDate(selectedSeries.endDate)}
+          </div>
+
+          {/* Progress */}
+          {(() => {
+            const counts = sermonCountBySeries[selectedSeries.id] || { total: 0, complete: 0, sermons: [] };
+            const totalSundays = getSundaysInRange(selectedSeries.startDate, selectedSeries.endDate);
+            const progress = totalSundays > 0 ? Math.round((counts.total / totalSundays) * 100) : 0;
+
+            return (
+              <>
+                <div className="text-sm text-ink/80 mb-2">
+                  {counts.total} of {totalSundays} Sundays planned
+                </div>
+                <div className="h-2 bg-sage/30 rounded-full overflow-hidden mb-3">
+                  <div
+                    className="h-full bg-sage transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+
+                {/* Sermon list */}
+                {counts.sermons.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto space-y-1 mb-3">
+                    {counts.sermons.slice(0, 5).map(sermon => (
+                      <div key={sermon.id} className="text-xs flex items-center gap-2">
+                        <span className={`w-4 ${
+                          sermon.status === 'Complete' || sermon.status === 'Ready to Preach'
+                            ? 'text-sage'
+                            : 'text-ink/40'
+                        }`}>
+                          {sermon.status === 'Complete' || sermon.status === 'Ready to Preach' ? '✓' : '○'}
+                        </span>
+                        <span className="truncate text-ink/70">{sermon.sermon_name}</span>
+                      </div>
+                    ))}
+                    {counts.sermons.length > 5 && (
+                      <div className="text-xs text-ink/40 pl-6">
+                        +{counts.sermons.length - 5} more...
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
+          <button
+            onClick={() => {
+              onSeriesClick(selectedSeries);
+              setSelectedSeries(null);
+            }}
+            className="w-full py-2 bg-gold/20 hover:bg-gold/30 text-gold rounded-lg text-sm font-medium transition-colors"
+          >
+            View in Calendar
+          </button>
+        </div>
+      )}
+
+      {/* Add Series Modal */}
+      {showAddModal && (
+        <AddSeriesModal
+          seriesWithoutDates={seriesWithoutDates}
+          onClose={() => setShowAddModal(false)}
+          onAddDates={async (seriesId, startDate, endDate) => {
+            await onSeriesUpdate(seriesId, { startDate, endDate });
+            setShowAddModal(false);
+          }}
+          onCreateSeries={async (title, startDate, endDate) => {
+            await onAddSeries(title, startDate, endDate);
+            setShowAddModal(false);
+          }}
+        />
+      )}
+
+    </div>
+  );
+}
+
+// ============================================
+// ADD SERIES MODAL
+// ============================================
+
+function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSeries }) {
+  const [mode, setMode] = useState('existing'); // 'existing' or 'new'
+  const [selectedSeriesId, setSelectedSeriesId] = useState('');
+  const [newTitle, setNewTitle] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async () => {
+    if (mode === 'existing' && selectedSeriesId && startDate && endDate) {
+      setSaving(true);
+      await onAddDates(selectedSeriesId, startDate, endDate);
+      setSaving(false);
+    } else if (mode === 'new' && newTitle && startDate && endDate) {
+      setSaving(true);
+      await onCreateSeries(newTitle, startDate, endDate);
+      setSaving(false);
+    }
+  };
+
+  const canSubmit = mode === 'existing'
+    ? (selectedSeriesId && startDate && endDate)
+    : (newTitle && startDate && endDate);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+        <h3 className="text-lg font-semibold text-ink mb-4">Add Series to Timeline</h3>
+
+        {/* Mode tabs */}
+        <div className="flex bg-parchment rounded-lg p-1 mb-4">
+          <button
+            onClick={() => setMode('existing')}
+            className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+              mode === 'existing' ? 'bg-white shadow text-burgundy' : 'text-ink/60'
+            }`}
+          >
+            Existing Series
+          </button>
+          <button
+            onClick={() => setMode('new')}
+            className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+              mode === 'new' ? 'bg-white shadow text-burgundy' : 'text-ink/60'
+            }`}
+          >
+            Create New
+          </button>
+        </div>
+
+        {/* Existing series selection */}
+        {mode === 'existing' && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-ink/70 mb-1">Series without dates</label>
+            {seriesWithoutDates.length > 0 ? (
+              <select
+                value={selectedSeriesId}
+                onChange={(e) => setSelectedSeriesId(e.target.value)}
+                className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+              >
+                <option value="">Select a series...</option>
+                {seriesWithoutDates.map(s => (
+                  <option key={s.id} value={s.id}>{s.title}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-sm text-ink/50 italic">All series have dates set</p>
+            )}
+          </div>
+        )}
+
+        {/* New series title */}
+        {mode === 'new' && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-ink/70 mb-1">Series Title</label>
+            <input
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+              placeholder="Enter series title..."
+            />
+          </div>
+        )}
+
+        {/* Date inputs */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-ink/70 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-ink/70 mb-1">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 bg-gray-200 text-ink rounded-lg font-medium hover:bg-gray-300 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!canSubmit || saving}
+            className="flex-1 py-2.5 bg-burgundy text-white rounded-lg font-medium hover:bg-burgundy/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Saving...' : 'Add to Timeline'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
 // MAIN APP COMPONENT
 // ============================================
 
@@ -777,6 +1187,47 @@ export default function App() {
             </div>
           </div>
         </header>
+
+        {/* Series Timeline - only on Calendar tab */}
+        {activeTab === 'calendar' && (
+          <SeriesTimeline
+            series={seriesOptions}
+            schedule={schedule}
+            currentDate={currentDate}
+            onSeriesClick={(s) => {
+              // Navigate to the series start date in calendar
+              if (s.startDate) {
+                const d = new Date(s.startDate);
+                setCurrentDate(new Date(d.getFullYear(), d.getMonth(), 1));
+              }
+            }}
+            onSeriesUpdate={async (seriesId, updates) => {
+              try {
+                await api.updateSeries(seriesId, updates);
+                // Refresh series list
+                const freshSeries = await api.fetchSeries();
+                setSeriesOptions(freshSeries);
+                showToast('Series updated!', 'success');
+              } catch (err) {
+                showToast('Failed to update series: ' + err.message, 'error');
+              }
+            }}
+            onNavigateMonth={(date) => {
+              setCurrentDate(date);
+            }}
+            onAddSeries={async (title, startDate, endDate) => {
+              try {
+                await api.addSeries(title, startDate, endDate);
+                // Refresh series list
+                const freshSeries = await api.fetchSeries();
+                setSeriesOptions(freshSeries);
+                showToast('Series created!', 'success');
+              } catch (err) {
+                showToast('Failed to create series: ' + err.message, 'error');
+              }
+            }}
+          />
+        )}
 
         {/* Calendar Tab */}
         {activeTab === 'calendar' && (

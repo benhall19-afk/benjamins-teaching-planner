@@ -113,11 +113,20 @@ export async function fetchSeries() {
   return handleResponse(response);
 }
 
-export async function addSeries(title) {
+export async function addSeries(title, startDate = null, endDate = null) {
   const response = await fetch(`${API_BASE}/series`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title })
+    body: JSON.stringify({ title, startDate, endDate })
+  });
+  return handleResponse(response);
+}
+
+export async function updateSeries(id, updates) {
+  const response = await fetch(`${API_BASE}/series/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
   });
   return handleResponse(response);
 }

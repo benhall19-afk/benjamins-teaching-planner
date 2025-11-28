@@ -406,10 +406,12 @@ app.get('/api/series', async (req, res) => {
     const result = await getCollectionItems(COLLECTIONS.series);
     const rawSeries = result.items || result;
 
-    // Extract just the titles for the dropdown
+    // Extract series with dates for timeline
     const series = rawSeries.map(item => ({
       id: item.id,
-      title: item.title || ''
+      title: item.title || '',
+      startDate: item.properties?.series_start_date || null,
+      endDate: item.properties?.series_end_date || null
     }));
 
     res.json(series);
@@ -424,20 +426,52 @@ app.post('/api/series', async (req, res) => {
     if (!COLLECTIONS.series) {
       return res.status(503).json({ error: 'Series collection not found' });
     }
-    const { title } = req.body;
+    const { title, startDate, endDate } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
     }
 
+    const properties = {};
+    if (startDate) properties.series_start_date = startDate;
+    if (endDate) properties.series_end_date = endDate;
+
     const result = await craftRequest(`/collections/${COLLECTIONS.series}/items`, {
       method: 'POST',
-      body: JSON.stringify({ items: [{ title, properties: {} }] })
+      body: JSON.stringify({ items: [{ title, properties }] })
     });
 
     res.json({ success: true, result });
   } catch (error) {
     res.status(500).json({ error: 'Failed to add series', details: error.message });
+  }
+});
+
+// Update a sermon series (dates)
+app.put('/api/series/:id', async (req, res) => {
+  try {
+    if (!COLLECTIONS.series) {
+      return res.status(503).json({ error: 'Series collection not found' });
+    }
+    const { id } = req.params;
+    const { title, startDate, endDate } = req.body;
+
+    const updateItem = { id };
+    if (title) updateItem.title = title;
+
+    const properties = {};
+    if (startDate !== undefined) properties.series_start_date = startDate || '';
+    if (endDate !== undefined) properties.series_end_date = endDate || '';
+
+    if (Object.keys(properties).length > 0) {
+      updateItem.properties = properties;
+    }
+
+    const result = await updateCollectionItems(COLLECTIONS.series, [updateItem]);
+
+    res.json({ success: true, result });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update series', details: error.message });
   }
 });
 
