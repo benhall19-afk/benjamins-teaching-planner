@@ -228,6 +228,7 @@ export default function App() {
   useEffect(() => {
     if (currentSermon) {
       setEditedRecommendations({
+        sermonDate: currentSermon.sermon_date || currentSermon.properties?.sermon_date || '',
         series: currentSermon.series || currentSermon.properties?.sermon_series?.relations?.[0]?.title || '',
         theme: currentSermon.sermon_themefocus || currentSermon.properties?.sermon_themefocus || '',
         audience: currentSermon.audience || currentSermon.properties?.audience || '',
@@ -546,6 +547,7 @@ export default function App() {
       });
 
       await api.updateScheduleEntry(currentSermon.id, {
+        sermon_date: editedRecommendations.sermonDate,
         sermon_series_id: sermonSeriesId,
         sermon_themefocus: editedRecommendations.theme,
         audience: editedRecommendations.audience,
@@ -560,13 +562,15 @@ export default function App() {
         s.id === currentSermon.id
           ? {
               ...s,
+              sermon_date: editedRecommendations.sermonDate,
               series: editedRecommendations.series,
               sermon_themefocus: editedRecommendations.theme,
               audience: editedRecommendations.audience,
               seasonholiday: editedRecommendations.season,
               content_type: editedRecommendations.lessonType,
               key_takeaway: editedRecommendations.keyTakeaway,
-              hashtags: editedRecommendations.hashtags
+              hashtags: editedRecommendations.hashtags,
+              properties: { ...s.properties, sermon_date: editedRecommendations.sermonDate }
             }
           : s
       ));
@@ -601,6 +605,7 @@ export default function App() {
       });
 
       await api.updateScheduleEntry(currentSermon.id, {
+        sermon_date: editedRecommendations.sermonDate,
         sermon_series_id: sermonSeriesId,
         sermon_themefocus: editedRecommendations.theme,
         audience: editedRecommendations.audience,
@@ -615,6 +620,7 @@ export default function App() {
         s.id === currentSermon.id
           ? {
               ...s,
+              sermon_date: editedRecommendations.sermonDate,
               series: editedRecommendations.series,
               sermon_themefocus: editedRecommendations.theme,
               audience: editedRecommendations.audience,
@@ -623,7 +629,7 @@ export default function App() {
               key_takeaway: editedRecommendations.keyTakeaway,
               hashtags: editedRecommendations.hashtags,
               sermon_information_added: true,
-              properties: { ...s.properties, sermon_information_added: true }
+              properties: { ...s.properties, sermon_date: editedRecommendations.sermonDate, sermon_information_added: true }
             }
           : s
       ));
@@ -1100,19 +1106,15 @@ export default function App() {
                         {recommendations ? '✓ AI analyzed - review below' : 'Edit existing values or click "Analyze with AI" to auto-fill'}
                       </p>
                       <div className="space-y-3 flex-1 overflow-y-auto pr-1">
-                        {/* Date display */}
-                        <div className="flex items-center gap-2 pb-2 border-b border-gold/20">
-                          <span className="text-xs font-medium text-ink/70">Date:</span>
-                          <span className="text-sm font-medium text-ink">
-                            {currentSermon?.sermon_date || currentSermon?.properties?.sermon_date
-                              ? new Date(currentSermon.sermon_date || currentSermon.properties.sermon_date).toLocaleDateString('en-US', {
-                                  weekday: 'short',
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric'
-                                })
-                              : 'No date set'}
-                          </span>
+                        {/* Date picker */}
+                        <div>
+                          <label className="block text-xs font-medium text-ink/70 mb-1">Date</label>
+                          <input
+                            type="date"
+                            value={editedRecommendations.sermonDate || ''}
+                            onChange={(e) => setEditedRecommendations(prev => ({ ...prev, sermonDate: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                          />
                         </div>
 
                         {[
