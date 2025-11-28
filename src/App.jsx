@@ -1873,18 +1873,16 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
         />
       </div>
 
-      {getValue('content') && (
-        <div>
-          <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Content/Notes</label>
-          <textarea
-            value={getValue('content')}
-            onChange={(e) => updateField('content', e.target.value)}
-            rows={4}
-            className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base resize-y"
-            placeholder="Sermon content or notes..."
-          />
-        </div>
-      )}
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Notes</label>
+        <textarea
+          value={getValue('notes')}
+          onChange={(e) => updateField('notes', e.target.value)}
+          rows={2}
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base resize-y"
+          placeholder="Quick notes about this entry..."
+        />
+      </div>
 
       <div>
         <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Series</label>
