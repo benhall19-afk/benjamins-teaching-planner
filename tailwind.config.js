@@ -16,6 +16,9 @@ export default {
         'gold': '#c9a227',
         'burgundy': '#722f37',
         'sage': '#87ae73',
+      },
+      animation: {
+        'spin-slow': 'spin 2s linear infinite',
       }
     },
   },

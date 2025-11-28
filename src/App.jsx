@@ -1131,9 +1131,17 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-parchment">
         <div className="text-center">
-          <div className="text-4xl mb-4 animate-pulse-gold">📖</div>
+          <div className="relative w-20 h-20 mx-auto mb-4">
+            {/* Spinning circle */}
+            <div className="absolute inset-0 rounded-full border-4 border-gold/20" />
+            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-gold animate-spin" />
+            {/* Book icon in center */}
+            <div className="absolute inset-0 flex items-center justify-center text-3xl">
+              📖
+            </div>
+          </div>
           <p className="text-ink font-display text-xl">Loading Bible Teaching Planner...</p>
         </div>
       </div>
@@ -1234,15 +1242,22 @@ export default function App() {
           <div className="bg-white rounded-xl shadow-md border border-gold/20 overflow-hidden">
             {/* Calendar Controls */}
             <div className="p-3 sm:p-4 border-b border-gold/20 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 bg-gradient-to-r from-parchment to-white">
+              {/* Left spacer - matches filters width for true centering */}
+              <div className="hidden sm:block order-1 sm:min-w-[280px]" />
+
               {/* Month/Year Navigation - Centered */}
-              <div className="flex items-center justify-center gap-2 sm:gap-3 order-1 sm:order-2 sm:flex-1">
+              <div className="flex items-center justify-center gap-2 sm:gap-3 order-1 sm:order-2">
                 <button
                   onClick={() => navigateMonth(-1)}
                   className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white rounded-lg transition-colors text-lg sm:text-xl"
                 >
                   ◀
                 </button>
-                <h2 className="text-lg sm:text-xl font-display font-semibold text-ink min-w-36 sm:min-w-48 text-center">
+                <h2
+                  onClick={() => setCurrentDate(new Date())}
+                  className="text-lg sm:text-xl font-display font-semibold text-ink min-w-36 sm:min-w-48 text-center cursor-pointer hover:text-gold transition-colors"
+                  title="Click to return to today"
+                >
                   {MONTH_NAMES[month]} {year}
                 </h2>
                 <button
@@ -1254,7 +1269,7 @@ export default function App() {
               </div>
 
               {/* Filters */}
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center sm:justify-end order-2 sm:order-3 w-full sm:w-auto">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center sm:justify-end order-2 sm:order-3 w-full sm:w-auto sm:min-w-[280px]">
                 <select
                   value={lessonTypeFilter}
                   onChange={(e) => setLessonTypeFilter(e.target.value)}
@@ -1349,9 +1364,7 @@ export default function App() {
                         </span>
                         <button
                           onClick={(e) => { e.stopPropagation(); setAddDate(dateStr); setShowAddModal(true); }}
-                          className={`w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center text-gold hover:bg-gold/20 rounded transition-all text-sm ${
-                            isSunday ? 'opacity-100' : 'opacity-70 sm:opacity-0 sm:group-hover:opacity-100'
-                          }`}
+                          className="w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center text-gold hover:bg-gold/20 rounded transition-all text-sm opacity-70 sm:opacity-0 sm:group-hover:opacity-100"
                         >
                           +
                         </button>

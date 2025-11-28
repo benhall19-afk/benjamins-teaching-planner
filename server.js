@@ -34,9 +34,38 @@ let COLLECTIONS = {
 };
 
 // ============================================
-// IN-MEMORY CACHE (loaded from Craft on startup)
+// IN-MEMORY CACHE WITH TTL
 // ============================================
 
+const cache = {
+  schedule: { data: null, timestamp: 0 },
+  series: { data: null, timestamp: 0 },
+  hashtags: { data: null, timestamp: 0 }
+};
+const CACHE_TTL = 30000; // 30 seconds
+
+function getCached(key) {
+  const entry = cache[key];
+  if (entry.data && (Date.now() - entry.timestamp) < CACHE_TTL) {
+    return entry.data;
+  }
+  return null;
+}
+
+function setCache(key, data) {
+  cache[key] = { data, timestamp: Date.now() };
+}
+
+function invalidateCache(key) {
+  if (key) {
+    cache[key] = { data: null, timestamp: 0 };
+  } else {
+    // Invalidate all
+    Object.keys(cache).forEach(k => cache[k] = { data: null, timestamp: 0 });
+  }
+}
+
+// Legacy variables (kept for compatibility)
 let sermonsCache = [];
 let scheduleCache = [];
 let hashtagsCache = [];
@@ -319,6 +348,12 @@ app.get('/api/sermons', async (req, res) => {
 // Get schedule (Bible Teaching Overview)
 app.get('/api/schedule', async (req, res) => {
   try {
+    // Check cache first
+    const cached = getCached('schedule');
+    if (cached) {
+      return res.json(cached);
+    }
+
     if (!COLLECTIONS.schedule) {
       return res.status(503).json({ error: 'Schedule collection not found. Check API connection.' });
     }
@@ -367,6 +402,7 @@ app.get('/api/schedule', async (req, res) => {
       };
     });
 
+    setCache('schedule', schedule);
     scheduleCache = schedule;
     res.json(schedule);
   } catch (error) {
@@ -400,6 +436,12 @@ app.get('/api/hashtags', async (req, res) => {
 // Get sermon series (from relationship database)
 app.get('/api/series', async (req, res) => {
   try {
+    // Check cache first
+    const cached = getCached('series');
+    if (cached) {
+      return res.json(cached);
+    }
+
     if (!COLLECTIONS.series) {
       return res.status(503).json({ error: 'Series collection not found. Check API connection.' });
     }
@@ -414,6 +456,7 @@ app.get('/api/series', async (req, res) => {
       endDate: item.properties?.series_end_date || null
     }));
 
+    setCache('series', series);
     res.json(series);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch series', details: error.message });
@@ -440,6 +483,7 @@ app.post('/api/series', async (req, res) => {
       method: 'POST',
       body: JSON.stringify({ items: [{ title, properties }] })
     });
+    invalidateCache('series');
 
     res.json({ success: true, result });
   } catch (error) {
@@ -468,6 +512,7 @@ app.put('/api/series/:id', async (req, res) => {
     }
 
     const result = await updateCollectionItems(COLLECTIONS.series, [updateItem]);
+    invalidateCache('series');
 
     res.json({ success: true, result });
   } catch (error) {
@@ -545,6 +590,7 @@ app.put('/api/schedule/:id', async (req, res) => {
 
     // Use allowNewSelectOptions to automatically add any new theme/audience/season values to Craft schema
     const result = await updateCollectionItems(COLLECTIONS.schedule, [craftUpdates], true);
+    invalidateCache('schedule');
 
     res.json({ success: true, result });
   } catch (error) {
@@ -597,6 +643,7 @@ app.post('/api/schedule', async (req, res) => {
     };
 
     const result = await addCollectionItems(COLLECTIONS.schedule, [craftEntry]);
+    invalidateCache('schedule');
 
     res.json({ success: true, result });
   } catch (error) {
@@ -613,6 +660,7 @@ app.delete('/api/schedule/:id', async (req, res) => {
     const { id } = req.params;
 
     const result = await deleteCollectionItems(COLLECTIONS.schedule, [id]);
+    invalidateCache('schedule');
 
     res.json({ success: true, result });
   } catch (error) {
