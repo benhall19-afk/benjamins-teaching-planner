@@ -8,9 +8,15 @@
 import express from 'express';
 import cors from 'cors';
 import { config } from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Load environment variables
 config();
+
+// ES Module __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -976,6 +982,18 @@ JSON:
     console.error('Analyze sermon error:', error);
     res.status(500).json({ error: 'Failed to analyze sermon', details: error.message });
   }
+});
+
+// ============================================
+// SERVE FRONTEND (Production)
+// ============================================
+
+// Serve static files from the dist directory
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// SPA fallback - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // ============================================
