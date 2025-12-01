@@ -1364,7 +1364,7 @@ export default function App() {
                         </span>
                         <button
                           onClick={(e) => { e.stopPropagation(); setAddDate(dateStr); setShowAddModal(true); }}
-                          className="w-6 h-6 sm:w-5 sm:h-5 flex items-center justify-center text-gold hover:bg-gold/20 rounded transition-all text-sm opacity-70 sm:opacity-0 sm:group-hover:opacity-100"
+                          className="w-5 h-5 hidden sm:flex items-center justify-center text-gold hover:bg-gold/20 rounded transition-all text-sm opacity-0 group-hover:opacity-100"
                         >
                           +
                         </button>
