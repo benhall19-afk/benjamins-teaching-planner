@@ -705,10 +705,6 @@ export default function App() {
 
   const getEventsForDate = (dateStr) => {
     return schedule.filter(item => {
-      // Hide archived items
-      const status = item.status || item.properties?.status;
-      if (status === 'archive') return false;
-
       if (!item.sermon_date && !item.properties?.sermon_date) return false;
       const itemDate = item.sermon_date || item.properties?.sermon_date;
       if (itemDate !== dateStr) return false;
@@ -1805,6 +1801,20 @@ export default function App() {
             onSave={handleAddEntry}
             onCancel={() => setShowAddModal(false)}
             isSaving={isSaving}
+            seriesOptions={seriesOptions}
+            onAddSeries={async (newSeries) => {
+              try {
+                const result = await api.addSeries(newSeries);
+                const newSeriesObj = {
+                  id: result.result?.items?.[0]?.id || `temp_${Date.now()}`,
+                  title: newSeries
+                };
+                setSeriesOptions(prev => [...prev, newSeriesObj]);
+                showToast(`Series "${newSeries}" added!`, 'success');
+              } catch (err) {
+                showToast('Failed to add series: ' + err.message, 'error');
+              }
+            }}
           />
         </Modal>
       )}
@@ -1991,9 +2001,11 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
   );
 }
 
-function AddEntryForm({ initialDate, onSave, onCancel, isSaving }) {
+function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions = [], onAddSeries }) {
   const [entry, setEntry] = useState({
     sermon_name: '',
+    notes: '',
+    series: '',
     lesson_type: 'Sermon',
     preacher: 'Benjamin',
     sermon_date: initialDate || '',
@@ -2011,6 +2023,33 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving }) {
           onChange={(e) => setEntry(prev => ({ ...prev, sermon_name: e.target.value }))}
           className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
           placeholder="Sermon name..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Notes</label>
+        <textarea
+          value={entry.notes}
+          onChange={(e) => setEntry(prev => ({ ...prev, notes: e.target.value }))}
+          rows={2}
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base resize-y"
+          placeholder="Quick notes about this entry..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Series</label>
+        <SelectWithAdd
+          value={entry.series}
+          onChange={(value) => setEntry(prev => ({ ...prev, series: value }))}
+          options={seriesOptions.map(s => s.title || s)}
+          customOptions={[]}
+          onAddCustom={async (newValue) => {
+            if (onAddSeries) {
+              await onAddSeries(newValue);
+            }
+          }}
+          label="Series"
         />
       </div>
 
@@ -2055,6 +2094,21 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving }) {
         >
           <option value="">None</option>
           {SPECIAL_EVENTS.map(ev => <option key={ev} value={ev}>{ev}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Status</label>
+        <select
+          value={entry.status}
+          onChange={(e) => setEntry(prev => ({ ...prev, status: e.target.value }))}
+          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+        >
+          <option value="Draft">Draft</option>
+          <option value="in progress">In Progress</option>
+          <option value="Complete">Complete</option>
+          <option value="Ready to Preach">Ready to Preach</option>
+          <option value="archive">Archive</option>
         </select>
       </div>
 
