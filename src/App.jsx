@@ -59,19 +59,19 @@ function SelectWithAdd({ value, onChange, options, customOptions, onAddCustom, l
             if (e.key === 'Escape') { setIsAdding(false); setNewValue(''); }
           }}
           placeholder={`New ${label}...`}
-          className="flex-1 px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+          className="flex-1 input-glass text-sm"
           autoFocus
         />
         <div className="flex gap-2">
           <button
             onClick={handleAddNew}
-            className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 bg-sage text-white rounded-lg text-sm hover:bg-sage/90"
+            className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 btn-glossy-sage text-sm"
           >
             Add
           </button>
           <button
             onClick={() => { setIsAdding(false); setNewValue(''); }}
-            className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 bg-gray-200 text-ink rounded-lg text-sm hover:bg-gray-300"
+            className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 btn-glass text-sm"
           >
             Cancel
           </button>
@@ -91,7 +91,7 @@ function SelectWithAdd({ value, onChange, options, customOptions, onAddCustom, l
             onChange(e.target.value);
           }
         }}
-        className="flex-1 px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+        className="flex-1 select-glass text-sm"
       >
         <option value="">Select...</option>
         {allOptions.map(opt => (
@@ -211,19 +211,7 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-md border border-gold/20 p-3 sm:p-4 mb-4 relative">
-      {/* Header with + button */}
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-ink/70">Series Timeline</h3>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="w-7 h-7 rounded-full bg-gold/20 hover:bg-gold/40 text-gold flex items-center justify-center transition-colors text-lg"
-          title="Add series to timeline"
-        >
-          +
-        </button>
-      </div>
-
+    <div className="relative">
       {/* Month headers */}
       <div className="flex border-b border-gold/20 pb-2 mb-3">
         {months.map((m, i) => (
@@ -270,7 +258,7 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
             >
               <div
                 className={`absolute inset-0 rounded-full px-2 py-1 text-white text-xs flex items-center justify-between overflow-hidden transition-all ${
-                  selectedSeries?.id === s.id ? 'bg-burgundy ring-2 ring-gold' : 'bg-burgundy/80 hover:bg-burgundy'
+                  selectedSeries?.id === s.id ? 'bg-sage-600 ring-2 ring-sage-300' : 'bg-sage-500 hover:bg-sage-600'
                 }`}
               >
                 <span className="truncate font-medium">{s.title}</span>
@@ -292,7 +280,7 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
       {/* Series Popover */}
       {selectedSeries && (
         <div
-          className="series-popover absolute z-50 bg-white rounded-lg shadow-xl border border-gold/30 p-4 w-72"
+          className="series-popover absolute z-50 glass-card p-4 w-72"
           style={{
             left: '50%',
             transform: 'translateX(-50%)',
@@ -443,7 +431,7 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
               <select
                 value={selectedSeriesId}
                 onChange={(e) => setSelectedSeriesId(e.target.value)}
-                className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                className="w-full select-glass text-sm"
               >
                 <option value="">Select a series...</option>
                 {seriesWithoutDates.map(s => (
@@ -464,7 +452,7 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+              className="w-full input-glass text-sm"
               placeholder="Enter series title..."
             />
           </div>
@@ -478,7 +466,7 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+              className="w-full input-glass text-sm"
             />
           </div>
           <div>
@@ -487,7 +475,7 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+              className="w-full input-glass text-sm"
             />
           </div>
         </div>
@@ -496,14 +484,14 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 bg-gray-200 text-ink rounded-lg font-medium hover:bg-gray-300 transition-all"
+            className="flex-1 py-2.5 btn-glass"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || saving}
-            className="flex-1 py-2.5 bg-burgundy text-white rounded-lg font-medium hover:bg-burgundy/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-2.5 btn-glossy disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving...' : 'Add to Timeline'}
           </button>
@@ -534,12 +522,12 @@ export default function App() {
   // Calendar state
   const [currentDate, setCurrentDate] = useState(new Date());
   const [hidePrepared, setHidePrepared] = useState(false);
-  const [lessonTypeFilter, setLessonTypeFilter] = useState('all');
   const [editingEntry, setEditingEntry] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addDate, setAddDate] = useState(null);
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [draggedEvent, setDraggedEvent] = useState(null);
+  const [showTimeline, setShowTimeline] = useState(false);
 
   // Review state
   const [currentSermonIndex, setCurrentSermonIndex] = useState(0);
@@ -575,13 +563,9 @@ export default function App() {
         api.fetchSeries().catch((e) => { console.error('Failed to fetch series:', e); return []; })
       ]);
 
-      console.log('Loaded data - Schedule:', scheduleData.length, 'items, Series:', seriesData.length, 'items');
-      console.log('Series data sample:', seriesData.slice(0, 3));
-
       setSchedule(scheduleData);
       // Keep full series objects (id + title) for relation handling
       const filteredSeries = seriesData.filter(s => s && s.title);
-      console.log('Filtered series:', filteredSeries.length, 'items');
       setSeriesOptions(filteredSeries);
     } catch (err) {
       console.error('loadData error:', err);
@@ -707,12 +691,7 @@ export default function App() {
     return schedule.filter(item => {
       if (!item.sermon_date && !item.properties?.sermon_date) return false;
       const itemDate = item.sermon_date || item.properties?.sermon_date;
-      if (itemDate !== dateStr) return false;
-
-      const lessonType = item.lesson_type || item.properties?.lesson_type;
-      if (lessonTypeFilter !== 'all' && lessonType !== lessonTypeFilter) return false;
-
-      return true;
+      return itemDate === dateStr;
     });
   };
 
@@ -725,20 +704,21 @@ export default function App() {
     switch (lessonType) {
       case 'Sermon':
       case 'Sermon AM':
-        return 'bg-blue-100 border-blue-400 text-blue-800 hover:bg-blue-200';
       case 'Sermon PM':
-      case 'Devotional':
-        return 'bg-amber-100 border-amber-400 text-amber-800 hover:bg-amber-200';
+        return 'bg-sage-100 border-sage-400 text-sage-800 hover:bg-sage-200';
       case 'Bible Lesson':
-      case 'Short English Bible Lesson':
       case 'Afternoon Study':
-        return 'bg-green-100 border-green-400 text-green-800 hover:bg-green-200';
+        return 'bg-sky-50 border-sky-300 text-sky-700 hover:bg-sky-100';
+      case 'Short English Bible Lesson':
+        return 'bg-teal-50 border-teal-300 text-teal-700 hover:bg-teal-100';
+      case 'Devotional':
+        return 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100';
       case 'Young Children\'s Bible Lesson':
-        return 'bg-purple-100 border-purple-400 text-purple-800 hover:bg-purple-200';
+        return 'bg-violet-50 border-violet-300 text-violet-700 hover:bg-violet-100';
       case 'Video Lesson':
-        return 'bg-pink-100 border-pink-400 text-pink-800 hover:bg-pink-200';
+        return 'bg-rose-50 border-rose-300 text-rose-700 hover:bg-rose-100';
       default:
-        return 'bg-gray-100 border-gray-400 text-gray-800 hover:bg-gray-200';
+        return 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
     }
   };
 
@@ -1080,13 +1060,6 @@ export default function App() {
     setIsSaving(false);
   };
 
-  const handleSkipSermon = () => {
-    setRecommendations(null);
-    setEditedRecommendations({});
-    if (currentSermonIndex < sermonsNeedingInfo.length - 1) {
-      setCurrentSermonIndex(prev => prev + 1);
-    }
-  };
 
   // Mark sermon as complete without AI analysis (for sermons that don't need full review)
   const handleMarkComplete = async () => {
@@ -1127,117 +1100,154 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-parchment">
-        <div className="text-center">
-          <div className="relative w-20 h-20 mx-auto mb-4">
-            {/* Spinning circle */}
-            <div className="absolute inset-0 rounded-full border-4 border-gold/20" />
-            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-gold animate-spin" />
-            {/* Book icon in center */}
-            <div className="absolute inset-0 flex items-center justify-center text-3xl">
-              📖
-            </div>
+      <div className="min-h-screen flex items-center justify-center">
+        {/* Glossy background blobs */}
+        <div className="glossy-blob glossy-blob-1" />
+        <div className="glossy-blob glossy-blob-2" />
+        <div className="text-center relative z-10">
+          {/* Animated dots loader */}
+          <div className="flex items-center justify-center gap-1.5 mb-5">
+            <div className="w-2.5 h-2.5 rounded-full bg-sage-600 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '600ms' }} />
+            <div className="w-2.5 h-2.5 rounded-full bg-sage-500 animate-bounce" style={{ animationDelay: '100ms', animationDuration: '600ms' }} />
+            <div className="w-2.5 h-2.5 rounded-full bg-sage-400 animate-bounce" style={{ animationDelay: '200ms', animationDuration: '600ms' }} />
           </div>
-          <p className="text-ink font-display text-xl">Loading Bible Teaching Planner...</p>
+          <p className="text-ink/60 text-xs tracking-widest uppercase font-medium">Loading</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-6">
-      <div className="max-w-6xl mx-auto">
-        
-        {/* Header */}
-        <header className="bg-white rounded-lg sm:rounded-xl shadow-md p-3 sm:p-4 mb-4 sm:mb-6 border border-gold/20">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <span className="text-2xl sm:text-3xl">📖</span>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-display font-bold text-ink">Bible Teaching Planner</h1>
-                <p className="text-xs sm:text-sm text-ink/60">Benjamin Hall</p>
-              </div>
+    <div className="min-h-screen relative">
+      {/* Glossy background blobs */}
+      <div className="glossy-blob glossy-blob-1" />
+      <div className="glossy-blob glossy-blob-2" />
+      <div className="glossy-blob glossy-blob-3" />
+
+      {/* Combined Header with Navigation and Series Timeline */}
+      <header className="sticky top-0 z-40 px-4 md:px-6 pt-4 pb-2 max-w-6xl mx-auto">
+        <div className="glass-card rounded-2xl overflow-hidden">
+          {/* Top Navigation Bar */}
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-sage/10">
+            <div className="flex items-center gap-3">
+              <span className="text-xl sm:text-2xl">📖</span>
+              <span className="hidden sm:block text-lg tracking-tight font-semibold text-ink">Bible Teaching Planner</span>
             </div>
 
-            <div className="flex items-center w-full sm:w-auto">
-              {/* Tab Switcher */}
-              <div className="flex bg-parchment rounded-lg p-1 w-full sm:w-auto">
-                <button
-                  onClick={() => setActiveTab('calendar')}
-                  className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all ${
-                    activeTab === 'calendar'
-                      ? 'bg-white shadow text-burgundy'
-                      : 'text-ink/60 hover:text-ink'
-                  }`}
-                >
-                  📅 Calendar
-                </button>
-                <button
-                  onClick={() => setActiveTab('review')}
-                  className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-                    activeTab === 'review'
-                      ? 'bg-white shadow text-burgundy'
-                      : 'text-ink/60 hover:text-ink'
-                  }`}
-                >
-                  📝 Review
-                  {sermonsNeedingInfo.length > 0 && (
-                    <span className="bg-burgundy text-white text-xs px-2 py-0.5 rounded-full">
-                      {sermonsNeedingInfo.length}
-                    </span>
-                  )}
-                </button>
-              </div>
+            {/* Tab Switcher */}
+            <div className="flex items-center gap-1 bg-sage-50/50 rounded-full p-1">
+              <button
+                onClick={() => setActiveTab('calendar')}
+                className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all ${
+                  activeTab === 'calendar' ? 'bg-white shadow-sm text-sage-700' : 'text-ink/50 hover:text-ink/70'
+                }`}
+              >
+                📅 Calendar
+              </button>
+              <button
+                onClick={() => setActiveTab('review')}
+                className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  activeTab === 'review' ? 'bg-white shadow-sm text-sage-700' : 'text-ink/50 hover:text-ink/70'
+                }`}
+              >
+                📝 Review
+                {sermonsNeedingInfo.length > 0 && (
+                  <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    {sermonsNeedingInfo.length}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
-        </header>
 
-        {/* Series Timeline - only on Calendar tab */}
-        {activeTab === 'calendar' && (
-          <SeriesTimeline
-            series={seriesOptions}
-            schedule={schedule}
-            currentDate={currentDate}
-            onSeriesClick={(s) => {
-              // Navigate to the series start date in calendar
-              if (s.startDate) {
-                const d = new Date(s.startDate);
-                setCurrentDate(new Date(d.getFullYear(), d.getMonth(), 1));
-              }
-            }}
-            onSeriesUpdate={async (seriesId, updates) => {
-              try {
-                await api.updateSeries(seriesId, updates);
-                // Refresh series list
-                const freshSeries = await api.fetchSeries();
-                setSeriesOptions(freshSeries);
-                showToast('Series updated!', 'success');
-              } catch (err) {
-                showToast('Failed to update series: ' + err.message, 'error');
-              }
-            }}
-            onNavigateMonth={(date) => {
-              setCurrentDate(date);
-            }}
-            onAddSeries={async (title, startDate, endDate) => {
-              try {
-                await api.addSeries(title, startDate, endDate);
-                // Refresh series list
-                const freshSeries = await api.fetchSeries();
-                setSeriesOptions(freshSeries);
-                showToast('Series created!', 'success');
-              } catch (err) {
-                showToast('Failed to create series: ' + err.message, 'error');
-              }
-            }}
-          />
-        )}
+          {/* Series Timeline - integrated into header, only on Calendar tab */}
+          {activeTab === 'calendar' && (
+            <div className="border-t border-sage/10">
+              {/* Toggle Header */}
+              <div className="px-4 sm:px-6 py-2 flex items-center justify-between">
+                <button
+                  onClick={() => setShowTimeline(!showTimeline)}
+                  className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
+                >
+                  <svg
+                    className={`w-3.5 h-3.5 transition-transform duration-200 ${showTimeline ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  <span className="font-medium uppercase tracking-wider text-xs">Series Timeline</span>
+                </button>
+                {showTimeline && (
+                  <button
+                    onClick={() => {/* Will be handled by SeriesTimeline's onAddSeries */}}
+                    className="w-6 h-6 rounded-full bg-sage/10 hover:bg-sage/20 text-sage-600 flex items-center justify-center transition-colors text-sm"
+                    title="Add series to timeline"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
 
+              {/* Collapsible Content with Animation */}
+              <div
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                  showTimeline ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="px-4 sm:px-6 pb-3">
+                  <SeriesTimeline
+                    series={seriesOptions}
+                    schedule={schedule}
+                    currentDate={currentDate}
+                    onSeriesClick={(s) => {
+                      // Navigate to the series start date in calendar
+                      if (s.startDate) {
+                        const d = new Date(s.startDate);
+                        setCurrentDate(new Date(d.getFullYear(), d.getMonth(), 1));
+                      }
+                    }}
+                    onSeriesUpdate={async (seriesId, updates) => {
+                      try {
+                        await api.updateSeries(seriesId, updates);
+                        // Refresh series list
+                        const freshSeries = await api.fetchSeries();
+                        setSeriesOptions(freshSeries);
+                        showToast('Series updated!', 'success');
+                      } catch (err) {
+                        showToast('Failed to update series: ' + err.message, 'error');
+                      }
+                    }}
+                    onNavigateMonth={(date) => {
+                      setCurrentDate(date);
+                    }}
+                    onAddSeries={async (title, startDate, endDate) => {
+                      try {
+                        await api.addSeries(title, startDate, endDate);
+                        // Refresh series list
+                        const freshSeries = await api.fetchSeries();
+                        setSeriesOptions(freshSeries);
+                        showToast('Series created!', 'success');
+                      } catch (err) {
+                        showToast('Failed to create series: ' + err.message, 'error');
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="px-4 md:px-6 pb-6 max-w-6xl mx-auto relative z-10">
         {/* Calendar Tab */}
         {activeTab === 'calendar' && (
-          <div className="bg-white rounded-xl shadow-md border border-gold/20 overflow-hidden">
+          <div className="glass-card overflow-hidden animate-card-in">
             {/* Calendar Controls */}
-            <div className="p-3 sm:p-4 border-b border-gold/20 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 bg-gradient-to-r from-parchment to-white">
+            <div className="p-3 sm:p-4 border-b border-sage/10 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 bg-gradient-to-r from-sage-50/50 to-white/50">
               {/* Left spacer - matches filters width for true centering */}
               <div className="hidden sm:block order-1 sm:min-w-[280px]" />
 
@@ -1266,24 +1276,13 @@ export default function App() {
 
               {/* Filters */}
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center sm:justify-end order-2 sm:order-3 w-full sm:w-auto sm:min-w-[280px]">
-                <select
-                  value={lessonTypeFilter}
-                  onChange={(e) => setLessonTypeFilter(e.target.value)}
-                  className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gold/30 rounded-lg text-xs sm:text-sm bg-white focus:border-gold outline-none flex-1 sm:flex-none"
-                >
-                  <option value="all">All Types</option>
-                  {LESSON_TYPE_OPTIONS.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-
                 {unscheduledSermons.length > 0 && (
                   <button
                     onClick={() => setShowUnscheduled(!showUnscheduled)}
-                    className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${
+                    className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${
                       showUnscheduled
-                        ? 'bg-gold text-white'
-                        : 'bg-gold/20 text-gold hover:bg-gold/30'
+                        ? 'btn-glossy-sage'
+                        : 'btn-glass'
                     }`}
                   >
                     📋 Unscheduled ({unscheduledSermons.length})
@@ -1292,9 +1291,9 @@ export default function App() {
 
                 <button
                   onClick={() => setShowShiftModal(true)}
-                  className="px-2 sm:px-3 py-1.5 sm:py-2 bg-gradient-to-r from-burgundy to-burgundy/80 text-white rounded-lg text-xs sm:text-sm font-medium hover:shadow-md transition-all flex-1 sm:flex-none"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 hover:bg-white text-ink/70 hover:text-ink rounded-full text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none shadow-sm"
                 >
-                  ⬇️ Shift Down
+                  Move Sermons
                 </button>
               </div>
             </div>
@@ -1344,23 +1343,23 @@ export default function App() {
                           setShowAddModal(true);
                         }
                       }}
-                      className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-all cursor-pointer ${
+                      className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer ${
                         isToday
-                          ? 'border-gold bg-gold/10'
+                          ? 'border-sage-500 bg-sage-100/50 shadow-sm'
                           : isSunday
                             ? 'bg-burgundy/5 border-burgundy/20'
-                            : 'border-gray-200 hover:border-gold/40'
-                      } ${draggedEvent ? 'hover:border-gold hover:bg-gold/5' : ''}`}
+                            : 'border-sage/20 hover:border-sage/50 bg-white/50'
+                      } ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''}`}
                     >
                       <div className="day-header flex items-center justify-between mb-0.5 sm:mb-1">
                         <span className={`text-xs sm:text-sm font-medium ${
-                          isToday ? 'text-gold' : isSunday ? 'text-burgundy' : 'text-ink/60'
+                          isToday ? 'text-sage-700' : isSunday ? 'text-burgundy' : 'text-ink/60'
                         }`}>
                           {day}
                         </span>
                         <button
                           onClick={(e) => { e.stopPropagation(); setAddDate(dateStr); setShowAddModal(true); }}
-                          className="w-5 h-5 hidden sm:flex items-center justify-center text-gold hover:bg-gold/20 rounded transition-all text-sm opacity-0 group-hover:opacity-100"
+                          className="w-5 h-5 hidden sm:flex items-center justify-center text-sage-600 hover:bg-sage/20 rounded-full transition-all text-sm opacity-0 group-hover:opacity-100"
                         >
                           +
                         </button>
@@ -1395,7 +1394,7 @@ export default function App() {
 
               {/* Unscheduled Sermons Sidebar */}
               {showUnscheduled && (
-                <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-gold/20 p-3 sm:p-4 bg-parchment/30 max-h-[40vh] lg:max-h-none overflow-y-auto">
+                <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-sage/10 p-3 sm:p-4 bg-sage-50/30 max-h-[40vh] lg:max-h-none overflow-y-auto animate-card-in">
                   <h3 className="font-display font-semibold text-sm text-ink mb-3">
                     Unscheduled Sermons
                   </h3>
@@ -1448,19 +1447,31 @@ export default function App() {
             </div>
 
             {/* Legend */}
-            <div className="p-3 sm:p-4 border-t border-gold/20 bg-parchment/30 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs sm:text-sm gap-3 sm:gap-4">
-              <div className="flex items-center gap-3 sm:gap-6 flex-wrap">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-blue-100 border border-blue-400" />
-                  <span className="text-ink/70">Sermon AM</span>
+            <div className="p-3 sm:p-4 border-t border-sage/10 bg-sage-50/30 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs sm:text-sm gap-3 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-sage-100 border border-sage-400" />
+                  <span className="text-ink/70">Sermon</span>
                 </div>
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-amber-100 border border-amber-400" />
-                  <span className="text-ink/70">Sermon PM</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-sky-50 border border-sky-300" />
+                  <span className="text-ink/70">Bible Lesson</span>
                 </div>
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-green-100 border border-green-400" />
-                  <span className="text-ink/70">Afternoon Study</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-teal-50 border border-teal-300" />
+                  <span className="text-ink/70">Short English</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-amber-50 border border-amber-300" />
+                  <span className="text-ink/70">Devotional</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-violet-50 border border-violet-300" />
+                  <span className="text-ink/70">Children's</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-rose-50 border border-rose-300" />
+                  <span className="text-ink/70">Video</span>
                 </div>
               </div>
               <label className="flex items-center gap-2 cursor-pointer select-none w-full sm:w-auto">
@@ -1468,7 +1479,7 @@ export default function App() {
                   type="checkbox"
                   checked={hidePrepared}
                   onChange={() => setHidePrepared(!hidePrepared)}
-                  className="w-4 h-4 rounded border-gold/30 text-burgundy focus:ring-burgundy"
+                  className="w-4 h-4 rounded border-sage-300 text-sage-600 focus:ring-sage-500"
                 />
                 <span className="text-ink/70">View only Unprepared Sermons</span>
               </label>
@@ -1478,7 +1489,7 @@ export default function App() {
 
         {/* Review Tab */}
         {activeTab === 'review' && (
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-md border border-gold/20 p-3 sm:p-6 mb-4 sm:mb-6">
+          <div className="glass-card p-3 sm:p-6 mb-4 sm:mb-6 animate-card-in">
             {sermonsNeedingInfo.length === 0 ? (
               <div className="text-center py-8 sm:py-12">
                 <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">✅</div>
@@ -1520,6 +1531,7 @@ export default function App() {
                       <Markdown
                         components={{
                           a: ({node, ...props}) => <a {...props} className="text-burgundy hover:underline break-words" target="_blank" rel="noopener noreferrer" />,
+                          img: () => null,
                           h1: ({node, ...props}) => <h1 {...props} className="text-lg font-bold mt-3 mb-2" />,
                           h2: ({node, ...props}) => <h2 {...props} className="text-base font-bold mt-3 mb-2" />,
                           h3: ({node, ...props}) => <h3 {...props} className="text-sm font-bold mt-2 mb-1" />,
@@ -1540,6 +1552,8 @@ export default function App() {
                           .replace(/<callout[^>]*>/gi, '\n> ')
                           .replace(/<\/callout>/gi, '\n')
                           .replace(/<[^>]+>/g, '')
+                          .replace(/\*{4,}/g, '**')
+                          .replace(/\*\*\s*\*\*/g, '')
                           .replace(/^-\s+(#{1,6})\s+/gm, '$1 ')
                           .replace(/^\s*-\s+(#{1,6})\s+/gm, '$1 ')
                         }
@@ -1550,7 +1564,7 @@ export default function App() {
                       <button
                         onClick={handleAnalyzeSermon}
                         disabled={isAnalyzing || isSaving}
-                        className="flex-1 py-2.5 sm:py-3 bg-gradient-to-r from-burgundy to-burgundy/80 text-white rounded-lg text-sm sm:text-base font-medium hover:shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 sm:py-3 btn-glossy text-sm sm:text-base disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         {isAnalyzing ? (
                           <>
@@ -1566,7 +1580,7 @@ export default function App() {
                       <button
                         onClick={handleMarkComplete}
                         disabled={isAnalyzing || isSaving}
-                        className="flex-1 py-2.5 sm:py-3 bg-sage text-white rounded-lg text-sm sm:text-base font-medium hover:bg-sage/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="flex-1 py-2.5 sm:py-3 btn-glossy-sage text-sm sm:text-base disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         {isSaving ? 'Saving...' : '✓ Mark Complete'}
                       </button>
@@ -1595,7 +1609,7 @@ export default function App() {
                             type="date"
                             value={editedRecommendations.sermonDate || ''}
                             onChange={(e) => setEditedRecommendations(prev => ({ ...prev, sermonDate: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                            className="w-full input-glass text-sm"
                           />
                         </div>
 
@@ -1606,7 +1620,7 @@ export default function App() {
                             value={editedRecommendations.notes || ''}
                             onChange={(e) => setEditedRecommendations(prev => ({ ...prev, notes: e.target.value }))}
                             rows={2}
-                            className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none resize-y"
+                            className="w-full input-glass text-sm resize-y"
                             placeholder="Review notes about how the sermon went..."
                           />
                         </div>
@@ -1648,7 +1662,7 @@ export default function App() {
                             type="text"
                             value={editedRecommendations.primaryText || ''}
                             onChange={(e) => setEditedRecommendations(prev => ({ ...prev, primaryText: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                            className="w-full input-glass text-sm"
                             placeholder="e.g., John 3:16, Romans 8:28-30"
                           />
                         </div>
@@ -1702,7 +1716,7 @@ export default function App() {
                             type="text"
                             value={editedRecommendations.keyTakeaway || ''}
                             onChange={(e) => setEditedRecommendations(prev => ({ ...prev, keyTakeaway: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                            className="w-full input-glass text-sm"
                           />
                         </div>
 
@@ -1712,7 +1726,7 @@ export default function App() {
                             type="text"
                             value={editedRecommendations.hashtags || ''}
                             onChange={(e) => setEditedRecommendations(prev => ({ ...prev, hashtags: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gold/30 rounded-lg text-sm bg-white focus:border-gold outline-none"
+                            className="w-full input-glass text-sm"
                             placeholder="#topic/faith, #topic/obedience"
                           />
                         </div>
@@ -1722,22 +1736,16 @@ export default function App() {
                         <button
                           onClick={handleApprove}
                           disabled={isSaving}
-                          className="flex-1 py-2.5 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-all disabled:opacity-50 text-sm"
+                          className="flex-1 py-2.5 btn-glossy text-sm disabled:opacity-50"
                         >
                           {isSaving ? 'Saving...' : '✓ Approve'}
                         </button>
                         <button
                           onClick={handleApproveAndComplete}
                           disabled={isSaving}
-                          className="flex-1 py-2.5 bg-sage text-white rounded-lg font-medium hover:bg-sage/90 transition-all disabled:opacity-50 text-sm"
+                          className="flex-1 py-2.5 btn-glossy-sage text-sm disabled:opacity-50"
                         >
                           {isSaving ? 'Saving...' : '✓ Approve & Complete'}
-                        </button>
-                        <button
-                          onClick={handleSkipSermon}
-                          className="flex-1 py-2.5 bg-gray-200 text-ink rounded-lg font-medium hover:bg-gray-300 transition-all text-sm"
-                        >
-                          Skip
                         </button>
                       </div>
                     </div>
@@ -1751,7 +1759,7 @@ export default function App() {
                 <p className="text-ink/60 mt-2">There was an issue loading sermon data. Please check your connection and try again.</p>
                 <button
                   onClick={loadData}
-                  className="mt-4 px-6 py-2 bg-burgundy text-white rounded-lg hover:bg-burgundy/90 transition-colors"
+                  className="mt-4 px-6 py-2 btn-glossy"
                 >
                   Retry
                 </button>
@@ -1850,10 +1858,10 @@ export default function App() {
 function Modal({ children, onClose }) {
   return (
     <div
-      className="modal-backdrop fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-2 sm:p-4"
+      className="modal-backdrop fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-2 sm:p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 max-w-[calc(100vw-1rem)] sm:max-w-md w-full max-h-[85vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="modal-glass p-4 sm:p-6 max-w-[calc(100vw-1rem)] sm:max-w-md w-full max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
         {children}
       </div>
     </div>
@@ -1879,7 +1887,7 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
           type="text"
           value={getValue('sermon_name')}
           onChange={(e) => updateField('sermon_name', e.target.value)}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full input-glass text-sm sm:text-base"
         />
       </div>
 
@@ -1889,7 +1897,7 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
           value={getValue('notes')}
           onChange={(e) => updateField('notes', e.target.value)}
           rows={2}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base resize-y"
+          className="w-full input-glass text-sm sm:text-base resize-y"
           placeholder="Quick notes about this entry..."
         />
       </div>
@@ -1915,7 +1923,7 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
         <select
           value={getValue('lesson_type')}
           onChange={(e) => updateField('lesson_type', e.target.value)}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full select-glass text-sm sm:text-base"
         >
           <option value="">Select...</option>
           {LESSON_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -1927,7 +1935,7 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
         <select
           value={getValue('preacher')}
           onChange={(e) => updateField('preacher', e.target.value)}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full select-glass text-sm sm:text-base"
         >
           <option value="">Select...</option>
           {PREACHERS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -1940,7 +1948,7 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
           type="date"
           value={getValue('sermon_date')}
           onChange={(e) => updateField('sermon_date', e.target.value)}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full input-glass text-sm sm:text-base"
         />
       </div>
 
@@ -1949,7 +1957,7 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
         <select
           value={getValue('special_event')}
           onChange={(e) => updateField('special_event', e.target.value)}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full select-glass text-sm sm:text-base"
         >
           <option value="">None</option>
           {SPECIAL_EVENTS.map(ev => <option key={ev} value={ev}>{ev}</option>)}
@@ -1961,7 +1969,7 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
         <select
           value={getValue('status')}
           onChange={(e) => updateField('status', e.target.value)}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full select-glass text-sm sm:text-base"
         >
           <option value="">Select...</option>
           <option value="Draft">Draft</option>
@@ -1972,27 +1980,27 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
         </select>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3">
         <button
           onClick={onSave}
           disabled={isSaving}
-          className="w-full sm:flex-1 py-2.5 bg-burgundy text-white rounded-lg text-sm sm:text-base font-medium hover:bg-burgundy/90 transition-all disabled:opacity-50"
+          className="w-full sm:flex-1 py-2.5 btn-glossy text-sm sm:text-base disabled:opacity-50"
         >
           {isSaving ? 'Saving...' : 'Save'}
         </button>
         <button
           onClick={onCancel}
-          className="w-full sm:flex-1 py-2.5 bg-gray-200 text-ink rounded-lg text-sm sm:text-base font-medium hover:bg-gray-300 transition-all"
+          className="w-full sm:flex-1 py-2.5 btn-glass text-sm sm:text-base"
         >
           Cancel
         </button>
       </div>
-      
+
       {showDelete && (
         <button
           onClick={onDelete}
           disabled={isSaving}
-          className="w-full py-2 text-burgundy hover:bg-burgundy/10 rounded-lg text-sm transition-all"
+          className="w-full py-2 text-burgundy hover:bg-burgundy/10 rounded-full text-sm transition-all"
         >
           🗑 Delete Entry
         </button>
@@ -2021,7 +2029,7 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
           type="text"
           value={entry.sermon_name}
           onChange={(e) => setEntry(prev => ({ ...prev, sermon_name: e.target.value }))}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full input-glass text-sm sm:text-base"
           placeholder="Sermon name..."
         />
       </div>
@@ -2032,7 +2040,7 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
           value={entry.notes}
           onChange={(e) => setEntry(prev => ({ ...prev, notes: e.target.value }))}
           rows={2}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base resize-y"
+          className="w-full input-glass text-sm sm:text-base resize-y"
           placeholder="Quick notes about this entry..."
         />
       </div>
@@ -2058,7 +2066,7 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
         <select
           value={entry.lesson_type}
           onChange={(e) => setEntry(prev => ({ ...prev, lesson_type: e.target.value }))}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full select-glass text-sm sm:text-base"
         >
           {LESSON_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
@@ -2069,7 +2077,7 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
         <select
           value={entry.preacher}
           onChange={(e) => setEntry(prev => ({ ...prev, preacher: e.target.value }))}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full select-glass text-sm sm:text-base"
         >
           {PREACHERS.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
@@ -2081,7 +2089,7 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
           type="date"
           value={entry.sermon_date}
           onChange={(e) => setEntry(prev => ({ ...prev, sermon_date: e.target.value }))}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full input-glass text-sm sm:text-base"
         />
       </div>
 
@@ -2090,7 +2098,7 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
         <select
           value={entry.special_event}
           onChange={(e) => setEntry(prev => ({ ...prev, special_event: e.target.value }))}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full select-glass text-sm sm:text-base"
         >
           <option value="">None</option>
           {SPECIAL_EVENTS.map(ev => <option key={ev} value={ev}>{ev}</option>)}
@@ -2102,7 +2110,7 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
         <select
           value={entry.status}
           onChange={(e) => setEntry(prev => ({ ...prev, status: e.target.value }))}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full select-glass text-sm sm:text-base"
         >
           <option value="Draft">Draft</option>
           <option value="in progress">In Progress</option>
@@ -2112,17 +2120,17 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
         </select>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3">
         <button
           onClick={() => onSave(entry)}
           disabled={isSaving}
-          className="w-full sm:flex-1 py-2.5 bg-sage text-white rounded-lg text-sm sm:text-base font-medium hover:bg-sage/90 transition-all disabled:opacity-50"
+          className="w-full sm:flex-1 py-2.5 btn-glossy-sage text-sm sm:text-base disabled:opacity-50"
         >
           {isSaving ? 'Adding...' : 'Add Entry'}
         </button>
         <button
           onClick={onCancel}
-          className="w-full sm:flex-1 py-2.5 bg-gray-200 text-ink rounded-lg text-sm sm:text-base font-medium hover:bg-gray-300 transition-all"
+          className="w-full sm:flex-1 py-2.5 btn-glass text-sm sm:text-base"
         >
           Cancel
         </button>
@@ -2148,7 +2156,7 @@ function ShiftForm({ onShift, onCancel, isSaving }) {
           type="date"
           value={fromDate}
           onChange={(e) => setFromDate(e.target.value)}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full input-glass text-sm sm:text-base"
         />
       </div>
 
@@ -2160,7 +2168,7 @@ function ShiftForm({ onShift, onCancel, isSaving }) {
           max="12"
           value={weeks}
           onChange={(e) => setWeeks(parseInt(e.target.value) || 1)}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full input-glass text-sm sm:text-base"
         />
       </div>
 
@@ -2169,7 +2177,7 @@ function ShiftForm({ onShift, onCancel, isSaving }) {
         <select
           value={scope}
           onChange={(e) => setScope(e.target.value)}
-          className="w-full px-3 py-2.5 sm:py-2 border border-gold/30 rounded-lg focus:border-gold outline-none text-sm sm:text-base"
+          className="w-full select-glass text-sm sm:text-base"
         >
           <option value="all">All Sermons</option>
           <option value="benjamin">Benjamin's Sermons Only</option>
@@ -2180,13 +2188,13 @@ function ShiftForm({ onShift, onCancel, isSaving }) {
         <button
           onClick={() => onShift(fromDate, weeks, scope)}
           disabled={isSaving || !fromDate}
-          className="w-full sm:flex-1 py-2.5 bg-burgundy text-white rounded-lg text-sm sm:text-base font-medium hover:bg-burgundy/90 transition-all disabled:opacity-50"
+          className="w-full sm:flex-1 py-2.5 bg-sage-100 hover:bg-sage-200 text-sage-700 rounded-full text-sm sm:text-base font-medium transition-all disabled:opacity-50"
         >
-          {isSaving ? 'Shifting...' : 'Shift Down'}
+          {isSaving ? 'Moving...' : 'Move Sermons'}
         </button>
         <button
           onClick={onCancel}
-          className="w-full sm:flex-1 py-2.5 bg-gray-200 text-ink rounded-lg text-sm sm:text-base font-medium hover:bg-gray-300 transition-all"
+          className="w-full sm:flex-1 py-2.5 btn-glass text-sm sm:text-base"
         >
           Cancel
         </button>
