@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import * as api from './api';
 import {
   SERIES_OPTIONS, THEME_OPTIONS, AUDIENCE_OPTIONS, SEASON_OPTIONS,
@@ -401,7 +402,7 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-        <h3 className="text-lg font-semibold text-ink mb-4">Add Series to Timeline</h3>
+        <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-4">Add Series to Timeline</h3>
 
         {/* Mode tabs */}
         <div className="flex bg-parchment rounded-lg p-1 mb-4">
@@ -522,6 +523,7 @@ export default function App() {
   // Calendar state
   const [currentDate, setCurrentDate] = useState(new Date());
   const [hidePrepared, setHidePrepared] = useState(false);
+  const [filterBenjamin, setFilterBenjamin] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addDate, setAddDate] = useState(null);
@@ -691,7 +693,13 @@ export default function App() {
     return schedule.filter(item => {
       if (!item.sermon_date && !item.properties?.sermon_date) return false;
       const itemDate = item.sermon_date || item.properties?.sermon_date;
-      return itemDate === dateStr;
+      if (itemDate !== dateStr) return false;
+      // Filter by Benjamin if enabled
+      if (filterBenjamin) {
+        const preacher = item.preacher || item.properties?.preacher;
+        if (preacher !== 'Benjamin') return false;
+      }
+      return true;
     });
   };
 
@@ -1261,7 +1269,7 @@ export default function App() {
                 </button>
                 <h2
                   onClick={() => setCurrentDate(new Date())}
-                  className="text-lg sm:text-xl font-display font-semibold text-ink min-w-36 sm:min-w-48 text-center cursor-pointer hover:text-gold transition-colors"
+                  className="font-medium uppercase tracking-wider text-base sm:text-lg text-ink/60 min-w-36 sm:min-w-48 text-center cursor-pointer hover:text-ink transition-colors"
                   title="Click to return to today"
                 >
                   {MONTH_NAMES[month]} {year}
@@ -1290,10 +1298,27 @@ export default function App() {
                 )}
 
                 <button
-                  onClick={() => setShowShiftModal(true)}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 hover:bg-white text-ink/70 hover:text-ink rounded-full text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none shadow-sm"
+                  onClick={() => setFilterBenjamin(!filterBenjamin)}
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-base sm:text-lg transition-all shadow-sm ${
+                    filterBenjamin
+                      ? 'bg-sage-500 text-white ring-2 ring-sage-300'
+                      : 'bg-white/80 hover:bg-white'
+                  }`}
+                  title={filterBenjamin ? "Show all entries" : "Show only Benjamin's entries"}
                 >
-                  Move Sermons
+                  👨‍🏫
+                </button>
+
+                <button
+                  onClick={() => setHidePrepared(!hidePrepared)}
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-base sm:text-lg transition-all shadow-sm ${
+                    hidePrepared
+                      ? 'bg-sage-500 text-white ring-2 ring-sage-300'
+                      : 'bg-white/80 hover:bg-white'
+                  }`}
+                  title={hidePrepared ? "Show all sermons" : "Show only unprepared sermons"}
+                >
+                  {hidePrepared ? '☑️' : '✅'}
                 </button>
               </div>
             </div>
@@ -1395,13 +1420,13 @@ export default function App() {
               {/* Unscheduled Sermons Sidebar */}
               {showUnscheduled && (
                 <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-sage/10 p-3 sm:p-4 bg-sage-50/30 max-h-[40vh] lg:max-h-none overflow-y-auto animate-card-in">
-                  <h3 className="font-display font-semibold text-sm text-ink mb-3">
+                  <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-3">
                     Unscheduled Sermons
                   </h3>
 
                   {readyToSchedule.length > 0 && (
                     <div className="mb-4">
-                      <h4 className="text-xs font-medium text-sage mb-2">Ready to Schedule</h4>
+                      <h4 className="font-medium uppercase tracking-wider text-[10px] text-sage-600 mb-2">Ready to Schedule</h4>
                       <div className="space-y-1">
                         {readyToSchedule.map(sermon => (
                           <div
@@ -1421,7 +1446,7 @@ export default function App() {
 
                   {needsPreparation.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-medium text-burgundy/70 mb-2">Needs Preparation</h4>
+                      <h4 className="font-medium uppercase tracking-wider text-[10px] text-amber-600 mb-2">Needs Preparation</h4>
                       <div className="space-y-1">
                         {needsPreparation.map(sermon => (
                           <div
@@ -1448,7 +1473,8 @@ export default function App() {
 
             {/* Legend */}
             <div className="p-3 sm:p-4 border-t border-sage/10 bg-sage-50/30 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs sm:text-sm gap-3 sm:gap-4">
-              <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                <span className="font-medium uppercase tracking-wider text-[10px] text-ink/50">Legend</span>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded bg-sage-100 border border-sage-400" />
                   <span className="text-ink/70">Sermon</span>
@@ -1474,15 +1500,12 @@ export default function App() {
                   <span className="text-ink/70">Video</span>
                 </div>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer select-none w-full sm:w-auto">
-                <input
-                  type="checkbox"
-                  checked={hidePrepared}
-                  onChange={() => setHidePrepared(!hidePrepared)}
-                  className="w-4 h-4 rounded border-sage-300 text-sage-600 focus:ring-sage-500"
-                />
-                <span className="text-ink/70">View only Unprepared Sermons</span>
-              </label>
+              <button
+                onClick={() => setShowShiftModal(true)}
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 hover:bg-white text-ink/70 hover:text-ink rounded-full text-xs sm:text-sm font-medium transition-all shadow-sm"
+              >
+                Move Sermons
+              </button>
             </div>
           </div>
         )}
@@ -1529,6 +1552,7 @@ export default function App() {
                     </h3>
                     <div className="text-sm text-ink/70 flex-1 overflow-y-auto overflow-x-hidden pr-2">
                       <Markdown
+                        remarkPlugins={[remarkGfm]}
                         components={{
                           a: ({node, ...props}) => <a {...props} className="text-burgundy hover:underline break-words" target="_blank" rel="noopener noreferrer" />,
                           img: () => null,
@@ -1544,6 +1568,12 @@ export default function App() {
                           li: ({node, ...props}) => <li {...props} className="mb-1" />,
                           strong: ({node, ...props}) => <strong {...props} className="font-semibold" />,
                           blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-2 border-burgundy/50 pl-3 italic my-2" />,
+                          table: ({node, ...props}) => <table {...props} className="w-full border-collapse my-3 text-xs" />,
+                          thead: ({node, ...props}) => <thead {...props} className="bg-sage-100" />,
+                          tbody: ({node, ...props}) => <tbody {...props} />,
+                          tr: ({node, ...props}) => <tr {...props} className="border-b border-sage-200" />,
+                          th: ({node, ...props}) => <th {...props} className="text-left p-2 font-semibold text-ink/80" />,
+                          td: ({node, ...props}) => <td {...props} className="p-2 text-ink/70" />,
                         }}
                       >
                         {(currentSermon.content || currentSermon.contentMarkdown || currentSermon.properties?.content || 'No content preview available.')
@@ -1589,7 +1619,7 @@ export default function App() {
 
                   {/* Recommendations */}
                   <div className="bg-blue-50/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-blue-200/50 flex flex-col max-h-[50vh] sm:max-h-[calc(100vh-250px)]">
-                    <h3 className="font-display font-semibold text-base sm:text-lg text-ink mb-2 sm:mb-3">
+                    <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-2 sm:mb-3">
                       Recommendations
                     </h3>
 
@@ -1772,7 +1802,7 @@ export default function App() {
       {/* Edit Entry Modal */}
       {editingEntry && (
         <Modal onClose={() => setEditingEntry(null)}>
-          <h3 className="text-xl font-display font-semibold text-ink mb-4">Edit Entry</h3>
+          <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-4">Edit Entry</h3>
           <EntryForm
             entry={editingEntry}
             onChange={setEditingEntry}
@@ -1803,7 +1833,7 @@ export default function App() {
       {/* Add Entry Modal */}
       {showAddModal && (
         <Modal onClose={() => setShowAddModal(false)}>
-          <h3 className="text-xl font-display font-semibold text-ink mb-4">Add New Entry</h3>
+          <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-4">Add New Entry</h3>
           <AddEntryForm
             initialDate={addDate}
             onSave={handleAddEntry}
@@ -1830,7 +1860,7 @@ export default function App() {
       {/* Shift Modal */}
       {showShiftModal && (
         <Modal onClose={() => setShowShiftModal(false)}>
-          <h3 className="text-xl font-display font-semibold text-ink mb-4">Shift Sermons Down</h3>
+          <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-4">Move Sermons</h3>
           <ShiftForm
             onShift={handleShift}
             onCancel={() => setShowShiftModal(false)}
