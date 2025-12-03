@@ -92,7 +92,7 @@ export const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-export const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // Default hashtag categories
 export const HASHTAG_CATEGORIES = [

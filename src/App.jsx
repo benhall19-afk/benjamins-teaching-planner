@@ -679,7 +679,7 @@ export default function App() {
     const lastDay = new Date(year, month + 1, 0);
     return { 
       daysInMonth: lastDay.getDate(), 
-      startingDay: firstDay.getDay(), 
+      startingDay: (firstDay.getDay() + 6) % 7, // Monday-based (Mon=0, Sun=6) 
       year, 
       month 
     };
@@ -687,6 +687,43 @@ export default function App() {
 
   const formatDateString = (year, month, day) => {
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  // Get ISO week number for a date
+  const getWeekNumber = (date) => {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  };
+
+  // Group calendar days into weeks
+  const getCalendarWeeks = (daysInMonth, startingDay, year, month) => {
+    const weeks = [];
+    let currentWeek = [];
+
+    // Add empty cells for days before month starts
+    for (let i = 0; i < startingDay; i++) {
+      currentWeek.push(null);
+    }
+
+    // Add actual days
+    for (let day = 1; day <= daysInMonth; day++) {
+      currentWeek.push(day);
+      if (currentWeek.length === 7) {
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+    }
+
+    // Add remaining days (partial week)
+    if (currentWeek.length > 0) {
+      while (currentWeek.length < 7) currentWeek.push(null);
+      weeks.push(currentWeek);
+    }
+
+    return weeks;
   };
 
   const getEventsForDate = (dateStr) => {
@@ -1327,87 +1364,111 @@ export default function App() {
             <div className={`flex ${showUnscheduled ? 'flex-col lg:flex-row' : ''}`}>
               {/* Main Calendar */}
               <div className={`p-2 sm:p-4 ${showUnscheduled ? 'flex-1' : 'w-full'}`}>
-              {/* Day Headers */}
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
-                {DAY_NAMES.map(day => (
-                  <div
-                    key={day}
-                    className={`text-center text-xs sm:text-sm font-semibold py-1 sm:py-2 ${
-                      day === 'Sun' ? 'text-burgundy' : 'text-ink/60'
-                    }`}
-                  >
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar Days */}
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
-                {/* Empty cells for days before month starts */}
-                {Array.from({ length: startingDay }).map((_, i) => (
-                  <div key={`empty-${i}`} className="min-h-16 sm:min-h-24 bg-parchment/30 rounded-lg" />
-                ))}
-
-                {/* Actual days */}
-                {Array.from({ length: daysInMonth }).map((_, i) => {
-                  const day = i + 1;
-                  const dateStr = formatDateString(year, month, day);
-                  const events = getEventsForDate(dateStr);
-                  const isSunday = new Date(year, month, day).getDay() === 0;
-                  const isToday = new Date().toISOString().split('T')[0] === dateStr;
-
-                  return (
+              {/* Day Headers with week indicator space */}
+              <div className="flex mb-1 sm:mb-2">
+                <div className="w-6 sm:w-7 flex-shrink-0" /> {/* Space for week indicators - matches .week-indicator width */}
+                <div className="grid grid-cols-7 gap-0.5 sm:gap-1 flex-1">
+                  {DAY_NAMES.map(day => (
                     <div
                       key={day}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => handleDrop(dateStr)}
-                      onClick={(e) => {
-                        // Only open add modal if clicking on the day cell itself, not on an event
-                        if (e.target === e.currentTarget || e.target.closest('.day-header')) {
-                          setAddDate(dateStr);
-                          setShowAddModal(true);
-                        }
-                      }}
-                      className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer ${
-                        isToday
-                          ? 'border-sage-500 bg-sage-100/50 shadow-sm'
-                          : isSunday
-                            ? 'bg-burgundy/5 border-burgundy/20'
-                            : 'border-sage/20 hover:border-sage/50 bg-white/50'
-                      } ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''}`}
+                      className={`text-center text-xs sm:text-sm font-semibold py-1 sm:py-2 ${
+                        day === 'Sun' ? 'text-burgundy' : 'text-ink/60'
+                      }`}
                     >
-                      <div className="day-header flex items-center justify-between mb-0.5 sm:mb-1">
-                        <span className={`text-xs sm:text-sm font-medium ${
-                          isToday ? 'text-sage-700' : isSunday ? 'text-burgundy' : 'text-ink/60'
-                        }`}>
-                          {day}
-                        </span>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setAddDate(dateStr); setShowAddModal(true); }}
-                          className="w-5 h-5 hidden sm:flex items-center justify-center text-sage-600 hover:bg-sage/20 rounded-full transition-all text-sm opacity-0 group-hover:opacity-100"
-                        >
-                          +
-                        </button>
+                      {day}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Calendar Weeks with Week Indicators */}
+              <div className="space-y-0.5 sm:space-y-1">
+                {getCalendarWeeks(daysInMonth, startingDay, year, month).map((week, weekIndex) => {
+                  // Find first actual day in the week to calculate week number
+                  const firstDayInWeek = week.find(d => d !== null);
+                  const weekNum = firstDayInWeek
+                    ? getWeekNumber(new Date(year, month, firstDayInWeek))
+                    : null;
+
+                  // Check if this week contains today
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const isCurrentWeek = week.some(day => {
+                    if (day === null) return false;
+                    return formatDateString(year, month, day) === todayStr;
+                  });
+
+                  return (
+                    <div key={weekIndex} className="flex">
+                      {/* Week Number Semi-Circle Indicator */}
+                      <div className={`week-indicator ${isCurrentWeek ? 'current' : ''}`}>
+                        <span>{weekNum}</span>
                       </div>
 
-                      <div className="space-y-0.5 sm:space-y-1">
-                        {events.map(event => {
-                          const lessonType = event.lesson_type || event.properties?.lesson_type;
-                          const name = event.sermon_name || event.title || lessonType || '—';
-                          const isPrepared = isPreparedSermon(event);
-                          const shouldDim = hidePrepared && isPrepared;
+                      {/* Days Grid for this week */}
+                      <div className="grid grid-cols-7 gap-0.5 sm:gap-1 flex-1">
+                        {week.map((day, dayIndex) => {
+                          if (day === null) {
+                            return (
+                              <div key={`empty-${weekIndex}-${dayIndex}`} className="min-h-16 sm:min-h-24 bg-parchment/30 rounded-lg" />
+                            );
+                          }
+
+                          const dateStr = formatDateString(year, month, day);
+                          const events = getEventsForDate(dateStr);
+                          const isSunday = dayIndex === 6; // Sunday is now at index 6 (Mon=0, Sun=6)
+                          const isToday = todayStr === dateStr;
 
                           return (
-                            <button
-                              key={event.id}
-                              draggable
-                              onDragStart={() => setDraggedEvent(event)}
-                              onDragEnd={() => setDraggedEvent(null)}
-                              onClick={() => setEditingEntry({ ...event })}
-                              className={`entry-card w-full text-left px-1 sm:px-1.5 py-0.5 sm:py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing ${getLessonTypeColor(lessonType)} ${draggedEvent?.id === event.id ? 'opacity-50' : ''} ${shouldDim ? 'opacity-40' : ''}`}
+                            <div
+                              key={day}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => handleDrop(dateStr)}
+                              onClick={(e) => {
+                                if (e.target === e.currentTarget || e.target.closest('.day-header')) {
+                                  setAddDate(dateStr);
+                                  setShowAddModal(true);
+                                }
+                              }}
+                              className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer border-sage/20 hover:border-sage/50 ${isCurrentWeek ? 'bg-sage-100/70' : 'bg-white/50'} ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''}`}
                             >
-                              {name}
-                            </button>
+                              <div className="day-header flex items-center justify-between mb-0.5 sm:mb-1">
+                                <span className={`text-xs sm:text-sm font-medium ${
+                                  isToday
+                                    ? 'text-white bg-sage-500 rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center'
+                                    : isSunday ? 'text-burgundy' : 'text-ink/60'
+                                }`}>
+                                  {day}
+                                </span>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setAddDate(dateStr); setShowAddModal(true); }}
+                                  className="w-5 h-5 hidden sm:flex items-center justify-center text-sage-600 hover:bg-sage/20 rounded-full transition-all text-sm opacity-0 group-hover:opacity-100"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              <div className="space-y-0.5 sm:space-y-1">
+                                {events.map(event => {
+                                  const lessonType = event.lesson_type || event.properties?.lesson_type;
+                                  const name = event.sermon_name || event.title || lessonType || '—';
+                                  const isPrepared = isPreparedSermon(event);
+                                  const shouldDim = hidePrepared && isPrepared;
+
+                                  return (
+                                    <button
+                                      key={event.id}
+                                      draggable
+                                      onDragStart={() => setDraggedEvent(event)}
+                                      onDragEnd={() => setDraggedEvent(null)}
+                                      onClick={() => setEditingEntry({ ...event })}
+                                      className={`entry-card w-full text-left px-1 sm:px-1.5 py-0.5 sm:py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing ${getLessonTypeColor(lessonType)} ${draggedEvent?.id === event.id ? 'opacity-50' : ''} ${shouldDim ? 'opacity-40' : ''}`}
+                                    >
+                                      {name}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           );
                         })}
                       </div>

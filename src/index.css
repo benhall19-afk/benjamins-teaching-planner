@@ -343,6 +343,69 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ============================================
+   WEEK NUMBER INDICATORS
+   ============================================ */
+.week-indicator {
+  width: 24px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-top: 8px;
+}
+
+.week-indicator::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 28px;
+  background: rgba(135, 174, 115, 0.1);
+  border-radius: 14px 0 0 14px;
+  transition: all 0.2s ease;
+}
+
+.week-indicator span {
+  position: relative;
+  z-index: 1;
+  font-size: 0.55rem;
+  font-weight: 500;
+  color: rgba(28, 25, 23, 0.4);
+  letter-spacing: 0.01em;
+}
+
+/* Current Week Highlight */
+.week-indicator.current::before {
+  background: linear-gradient(135deg, #6b9359 0%, #87ae73 100%);
+  box-shadow: 0 2px 6px rgba(107, 147, 89, 0.3);
+}
+
+.week-indicator.current span {
+  color: white;
+  font-weight: 600;
+}
+
+/* Responsive adjustments */
+@media (min-width: 640px) {
+  .week-indicator {
+    width: 28px;
+    height: 38px;
+    margin-top: 10px;
+  }
+  .week-indicator::before {
+    height: 32px;
+    border-radius: 16px 0 0 16px;
+  }
+  .week-indicator span {
+    font-size: 0.6rem;
+  }
+}
+
+/* ============================================
    ENTRY CARDS
    ============================================ */
 .entry-card {
