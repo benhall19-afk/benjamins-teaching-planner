@@ -157,6 +157,55 @@ export async function migrateSermons() {
 }
 
 // ============================================
+// DEVOTIONS API
+// ============================================
+
+export async function fetchDevotionSeries() {
+  const response = await fetch(`${API_BASE}/devotions/series`);
+  return handleResponse(response);
+}
+
+export async function fetchDevotionLessons() {
+  const response = await fetch(`${API_BASE}/devotions/lessons`);
+  return handleResponse(response);
+}
+
+export async function addDevotionSeries(title, startDate = null, endDate = null) {
+  const response = await fetch(`${API_BASE}/devotions/series`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, startDate, endDate })
+  });
+  return handleResponse(response);
+}
+
+export async function updateDevotionLesson(id, updates) {
+  const response = await fetch(`${API_BASE}/devotions/lessons/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
+  });
+  return handleResponse(response);
+}
+
+export async function planDevotionsMonth() {
+  const response = await fetch(`${API_BASE}/devotions/plan-month`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  return handleResponse(response);
+}
+
+export async function cascadeRescheduleDevotions(fromLessonId, newDate) {
+  const response = await fetch(`${API_BASE}/devotions/cascade-reschedule`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fromLessonId, newDate })
+  });
+  return handleResponse(response);
+}
+
+// ============================================
 // HEALTH CHECK
 // ============================================
 

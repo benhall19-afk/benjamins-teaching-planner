@@ -7,6 +7,11 @@ import {
   LESSON_TYPE_OPTIONS, PREACHERS, SPECIAL_EVENTS,
   MONTH_NAMES, DAY_NAMES, getAllHashtags
 } from './constants';
+import { VIEWS, isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle } from './viewConfig';
+import ViewSwitcher from './components/ViewSwitcher';
+import ItemDetailPopup from './components/ItemDetailPopup';
+import PlanMonthModal from './components/PlanMonthModal';
+import WeeklyCalendar from './components/WeeklyCalendar';
 
 // ============================================
 // TOAST NOTIFICATIONS
@@ -108,7 +113,7 @@ function SelectWithAdd({ value, onChange, options, customOptions, onAddCustom, l
 // SERIES TIMELINE COMPONENT
 // ============================================
 
-function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeriesUpdate, onNavigateMonth, onAddSeries }) {
+function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeriesUpdate, onNavigateMonth, onAddSeries, isDevotionView = false }) {
   const [selectedSeries, setSelectedSeries] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [dragging, setDragging] = useState(null);
@@ -143,22 +148,36 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
     return series.filter(s => !s.startDate || !s.endDate);
   }, [series]);
 
-  // Count sermons per series
-  const sermonCountBySeries = useMemo(() => {
+  // Count items per series (sermons or devotion lessons)
+  const itemCountBySeries = useMemo(() => {
+    if (isDevotionView) {
+      // For devotions, count from the series data directly (already computed)
+      return series.reduce((acc, s) => {
+        if (s.isDevotionSeries) {
+          acc[s.id] = {
+            total: s.lessonCount || 0,
+            complete: s.completedCount || 0,
+            items: []
+          };
+        }
+        return acc;
+      }, {});
+    }
+    // For sermons
     return schedule.reduce((acc, entry) => {
       if (entry.sermon_series_id) {
         if (!acc[entry.sermon_series_id]) {
-          acc[entry.sermon_series_id] = { total: 0, complete: 0, sermons: [] };
+          acc[entry.sermon_series_id] = { total: 0, complete: 0, items: [] };
         }
         acc[entry.sermon_series_id].total++;
-        acc[entry.sermon_series_id].sermons.push(entry);
+        acc[entry.sermon_series_id].items.push(entry);
         if (entry.status === 'Complete' || entry.status === 'Ready to Preach') {
           acc[entry.sermon_series_id].complete++;
         }
       }
       return acc;
     }, {});
-  }, [schedule]);
+  }, [schedule, series, isDevotionView]);
 
   // Count Sundays in date range
   const getSundaysInRange = (startStr, endStr) => {
@@ -234,7 +253,7 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
         {seriesWithDates.map(s => {
           const startPos = getPositionForDate(s.startDate);
           const endPos = getPositionForDate(s.endDate);
-          const counts = sermonCountBySeries[s.id] || { total: 0, complete: 0, sermons: [] };
+          const counts = itemCountBySeries[s.id] || { total: 0, complete: 0, items: [] };
           const totalSundays = getSundaysInRange(s.startDate, s.endDate);
 
           if (startPos === null || endPos === null || startPos >= 100 || endPos <= 0) {
@@ -243,6 +262,11 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
 
           const width = Math.max(5, endPos - startPos);
           const left = Math.max(0, startPos);
+
+          const isDevSeries = s.isDevotionSeries;
+          const barColor = isDevSeries
+            ? (selectedSeries?.id === s.id ? 'bg-amber-600 ring-2 ring-amber-300' : 'bg-amber-500 hover:bg-amber-600')
+            : (selectedSeries?.id === s.id ? 'bg-sage-600 ring-2 ring-sage-300' : 'bg-sage-500 hover:bg-sage-600');
 
           return (
             <div
@@ -258,13 +282,14 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
               }}
             >
               <div
-                className={`absolute inset-0 rounded-full px-2 py-1 text-white text-xs flex items-center justify-between overflow-hidden transition-all ${
-                  selectedSeries?.id === s.id ? 'bg-sage-600 ring-2 ring-sage-300' : 'bg-sage-500 hover:bg-sage-600'
-                }`}
+                className={`absolute inset-0 rounded-full px-2 py-1 text-white text-xs flex items-center justify-between overflow-hidden transition-all ${barColor}`}
               >
                 <span className="truncate font-medium">{s.title}</span>
                 <span className="text-white/80 whitespace-nowrap ml-1">
-                  ({counts.total}/{totalSundays})
+                  {isDevSeries
+                    ? `(${counts.complete}/${counts.total})`
+                    : `(${counts.total}/${totalSundays})`
+                  }
                 </span>
               </div>
             </div>
@@ -273,7 +298,10 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
 
         {seriesWithDates.length === 0 && (
           <div className="text-center text-ink/40 text-sm py-4">
-            No series with dates. Click + to add one.
+            {isDevotionView
+              ? 'No devotion series with dates found.'
+              : 'No series with dates. Click + to add one.'
+            }
           </div>
         )}
       </div>
@@ -297,26 +325,30 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
 
           {/* Progress */}
           {(() => {
-            const counts = sermonCountBySeries[selectedSeries.id] || { total: 0, complete: 0, sermons: [] };
-            const totalSundays = getSundaysInRange(selectedSeries.startDate, selectedSeries.endDate);
-            const progress = totalSundays > 0 ? Math.round((counts.total / totalSundays) * 100) : 0;
+            const counts = itemCountBySeries[selectedSeries.id] || { total: 0, complete: 0, items: [] };
+            const isDevSeries = selectedSeries.isDevotionSeries;
+            const totalSlots = isDevSeries ? counts.total : getSundaysInRange(selectedSeries.startDate, selectedSeries.endDate);
+            const progress = counts.total > 0 ? Math.round((counts.complete / counts.total) * 100) : 0;
 
             return (
               <>
                 <div className="text-sm text-ink/80 mb-2">
-                  {counts.total} of {totalSundays} Sundays planned
+                  {isDevSeries
+                    ? `${counts.complete} of ${counts.total} lessons completed`
+                    : `${counts.total} of ${totalSlots} Sundays planned`
+                  }
                 </div>
-                <div className="h-2 bg-sage/30 rounded-full overflow-hidden mb-3">
+                <div className={`h-2 ${isDevSeries ? 'bg-amber/30' : 'bg-sage/30'} rounded-full overflow-hidden mb-3`}>
                   <div
-                    className="h-full bg-sage transition-all"
+                    className={`h-full ${isDevSeries ? 'bg-amber-500' : 'bg-sage'} transition-all`}
                     style={{ width: `${progress}%` }}
                   />
                 </div>
 
-                {/* Sermon list */}
-                {counts.sermons.length > 0 && (
+                {/* Item list (sermons only, devotions don't have detailed list here) */}
+                {!isDevSeries && counts.items.length > 0 && (
                   <div className="max-h-32 overflow-y-auto space-y-1 mb-3">
-                    {counts.sermons.slice(0, 5).map(sermon => (
+                    {counts.items.slice(0, 5).map(sermon => (
                       <div key={sermon.id} className="text-xs flex items-center gap-2">
                         <span className={`w-4 ${
                           sermon.status === 'Complete' || sermon.status === 'Ready to Preach'
@@ -328,9 +360,9 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
                         <span className="truncate text-ink/70">{sermon.sermon_name}</span>
                       </div>
                     ))}
-                    {counts.sermons.length > 5 && (
+                    {counts.items.length > 5 && (
                       <div className="text-xs text-ink/40 pl-6">
-                        +{counts.sermons.length - 5} more...
+                        +{counts.items.length - 5} more...
                       </div>
                     )}
                   </div>
@@ -364,6 +396,7 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
             await onAddSeries(title, startDate, endDate);
             setShowAddModal(false);
           }}
+          isDevotionView={isDevotionView}
         />
       )}
 
@@ -375,13 +408,28 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
 // ADD SERIES MODAL
 // ============================================
 
-function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSeries }) {
+function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSeries, isDevotionView = false }) {
   const [mode, setMode] = useState('existing'); // 'existing' or 'new'
   const [selectedSeriesId, setSelectedSeriesId] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Dynamic labels based on view type
+  const labels = isDevotionView ? {
+    title: 'Add Devotion Series to Timeline',
+    seriesTitle: 'Devotion Series Title',
+    startDate: 'Series Start Date',
+    endDate: 'Completion Date Goal',
+    placeholder: 'Enter devotion series title...'
+  } : {
+    title: 'Add Sermon Series to Timeline',
+    seriesTitle: 'Series Title',
+    startDate: 'Start Date',
+    endDate: 'End Date',
+    placeholder: 'Enter series title...'
+  };
 
   const handleSubmit = async () => {
     if (mode === 'existing' && selectedSeriesId && startDate && endDate) {
@@ -402,14 +450,14 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-        <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-4">Add Series to Timeline</h3>
+        <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-4">{labels.title}</h3>
 
         {/* Mode tabs */}
         <div className="flex bg-parchment rounded-lg p-1 mb-4">
           <button
             onClick={() => setMode('existing')}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
-              mode === 'existing' ? 'bg-white shadow text-burgundy' : 'text-ink/60'
+              mode === 'existing' ? `bg-white shadow ${isDevotionView ? 'text-amber-600' : 'text-burgundy'}` : 'text-ink/60'
             }`}
           >
             Existing Series
@@ -417,7 +465,7 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
           <button
             onClick={() => setMode('new')}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
-              mode === 'new' ? 'bg-white shadow text-burgundy' : 'text-ink/60'
+              mode === 'new' ? `bg-white shadow ${isDevotionView ? 'text-amber-600' : 'text-burgundy'}` : 'text-ink/60'
             }`}
           >
             Create New
@@ -448,13 +496,13 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
         {/* New series title */}
         {mode === 'new' && (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-ink/70 mb-1">Series Title</label>
+            <label className="block text-sm font-medium text-ink/70 mb-1">{labels.seriesTitle}</label>
             <input
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               className="w-full input-glass text-sm"
-              placeholder="Enter series title..."
+              placeholder={labels.placeholder}
             />
           </div>
         )}
@@ -462,7 +510,7 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
         {/* Date inputs */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <div>
-            <label className="block text-sm font-medium text-ink/70 mb-1">Start Date</label>
+            <label className="block text-sm font-medium text-ink/70 mb-1">{labels.startDate}</label>
             <input
               type="date"
               value={startDate}
@@ -471,7 +519,7 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-ink/70 mb-1">End Date</label>
+            <label className="block text-sm font-medium text-ink/70 mb-1">{labels.endDate}</label>
             <input
               type="date"
               value={endDate}
@@ -492,7 +540,9 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || saving}
-            className="flex-1 py-2.5 btn-glossy disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`flex-1 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed ${
+              isDevotionView ? 'btn-glossy-amber' : 'btn-glossy'
+            }`}
           >
             {saving ? 'Saving...' : 'Add to Timeline'}
           </button>
@@ -507,15 +557,25 @@ function AddSeriesModal({ seriesWithoutDates, onClose, onAddDates, onCreateSerie
 // ============================================
 
 export default function App() {
+  // View state - which calendar view is active
+  const [currentView, setCurrentView] = useState('sermons');
+
   // Data state - unified: schedule now contains all entries (including migrated sermons)
   const [schedule, setSchedule] = useState([]);
   const [seriesOptions, setSeriesOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Devotions data state
+  const [devotionSeries, setDevotionSeries] = useState([]);
+  const [devotionLessons, setDevotionLessons] = useState([]);
+  const [devotionsLoading, setDevotionsLoading] = useState(false);
+  const [selectedDevotionLesson, setSelectedDevotionLesson] = useState(null);
+  const [showPlanMonthModal, setShowPlanMonthModal] = useState(false);
+
   // Unscheduled sermons sidebar
   const [showUnscheduled, setShowUnscheduled] = useState(false);
-  
+
   // UI state
   const [activeTab, setActiveTab] = useState('calendar');
   const [toast, setToast] = useState(null);
@@ -560,15 +620,21 @@ export default function App() {
     setError(null);
     try {
       // Schedule now contains all entries (including migrated sermons with content)
-      const [scheduleData, seriesData] = await Promise.all([
+      // Also pre-load devotions since backend cache is pre-warmed
+      const [scheduleData, seriesData, devotionSeriesData, devotionLessonsData] = await Promise.all([
         api.fetchSchedule().catch((e) => { console.error('Failed to fetch schedule:', e); return []; }),
-        api.fetchSeries().catch((e) => { console.error('Failed to fetch series:', e); return []; })
+        api.fetchSeries().catch((e) => { console.error('Failed to fetch series:', e); return []; }),
+        api.fetchDevotionSeries().catch((e) => { console.error('Failed to fetch devotion series:', e); return []; }),
+        api.fetchDevotionLessons().catch((e) => { console.error('Failed to fetch devotion lessons:', e); return []; })
       ]);
 
       setSchedule(scheduleData);
       // Keep full series objects (id + title) for relation handling
       const filteredSeries = seriesData.filter(s => s && s.title);
       setSeriesOptions(filteredSeries);
+      // Pre-load devotions for instant view switching
+      setDevotionSeries(devotionSeriesData);
+      setDevotionLessons(devotionLessonsData);
     } catch (err) {
       console.error('loadData error:', err);
       setError('Failed to load data. Using offline mode.');
@@ -576,6 +642,57 @@ export default function App() {
     }
     setLoading(false);
   }
+
+  // Load devotions data when view changes to devotions or combined
+  async function loadDevotions(forceRefresh = false) {
+    if (!forceRefresh && devotionLessons.length > 0) return; // Already loaded
+    setDevotionsLoading(true);
+    try {
+      const [seriesData, lessonsData] = await Promise.all([
+        api.fetchDevotionSeries().catch((e) => { console.error('Failed to fetch devotion series:', e); return []; }),
+        api.fetchDevotionLessons().catch((e) => { console.error('Failed to fetch devotion lessons:', e); return []; })
+      ]);
+      setDevotionSeries(seriesData);
+      setDevotionLessons(lessonsData);
+    } catch (err) {
+      console.error('loadDevotions error:', err);
+      showToast('Could not load devotions data.', 'error');
+    }
+    setDevotionsLoading(false);
+  }
+
+  // Load devotions when switching to devotions or combined view
+  useEffect(() => {
+    if (currentView === 'devotions' || currentView === 'combined') {
+      loadDevotions();
+    }
+  }, [currentView]);
+
+  // Theme switching effect with fade-blur transition
+  const isFirstRender = React.useRef(true);
+  useEffect(() => {
+    const theme = VIEWS[currentView]?.theme || 'sage';
+
+    // Skip animation on first render
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      document.documentElement.setAttribute('data-theme', theme);
+      return;
+    }
+
+    // Add transition class for blur effect
+    document.body.classList.add('view-transitioning');
+
+    // Change theme
+    document.documentElement.setAttribute('data-theme', theme);
+
+    // Remove transition class after animation completes
+    const timeout = setTimeout(() => {
+      document.body.classList.remove('view-transitioning');
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [currentView]);
 
   // ============================================
   // HELPERS
@@ -619,6 +736,38 @@ export default function App() {
   }, [schedule]);
 
   const currentSermon = sermonsNeedingInfo[currentSermonIndex];
+
+  // Get the active devotion series (first one with a title)
+  const activeDevotionSeries = useMemo(() => {
+    if (devotionSeries.length === 0) return null;
+    // Find the first series with a title (filter out empty placeholder entries)
+    return devotionSeries.find(s => s.title && s.title.trim() !== '') || null;
+  }, [devotionSeries]);
+
+  // Transform devotion series for timeline display
+  const devotionSeriesForTimeline = useMemo(() => {
+    return devotionSeries
+      .filter(s => s.title && s.title.trim() !== '')
+      .map(s => {
+        // Calculate end date based on lessons if not explicitly set
+        const seriesLessons = devotionLessons.filter(l => l.series_id === s.id || l.properties?.series_id === s.id);
+        const scheduledDates = seriesLessons
+          .map(l => l.scheduled_date)
+          .filter(Boolean)
+          .sort();
+        const lastScheduledDate = scheduledDates.length > 0 ? scheduledDates[scheduledDates.length - 1] : null;
+
+        return {
+          id: s.id,
+          title: s.title,
+          startDate: s.series_start_date || s.properties?.series_start_date,
+          endDate: s.series_completion_date || s.properties?.series_completion_date || lastScheduledDate || s.series_start_date || s.properties?.series_start_date,
+          isDevotionSeries: true,
+          lessonCount: seriesLessons.length,
+          completedCount: seriesLessons.filter(l => l.last_taught).length
+        };
+      });
+  }, [devotionSeries, devotionLessons]);
 
   // Keep index in bounds when list shrinks (after completing sermons)
   useEffect(() => {
@@ -727,17 +876,35 @@ export default function App() {
   };
 
   const getEventsForDate = (dateStr) => {
-    return schedule.filter(item => {
-      if (!item.sermon_date && !item.properties?.sermon_date) return false;
-      const itemDate = item.sermon_date || item.properties?.sermon_date;
-      if (itemDate !== dateStr) return false;
-      // Filter by Benjamin if enabled
-      if (filterBenjamin) {
-        const preacher = item.preacher || item.properties?.preacher;
-        if (preacher !== 'Benjamin') return false;
-      }
-      return true;
-    });
+    const events = [];
+
+    // Get sermons (for 'sermons' and 'combined' views)
+    if (currentView === 'sermons' || currentView === 'combined') {
+      const sermons = schedule.filter(item => {
+        if (!item.sermon_date && !item.properties?.sermon_date) return false;
+        const itemDate = item.sermon_date || item.properties?.sermon_date;
+        if (itemDate !== dateStr) return false;
+        // Filter by Benjamin if enabled
+        if (filterBenjamin) {
+          const preacher = item.preacher || item.properties?.preacher;
+          if (preacher !== 'Benjamin') return false;
+        }
+        return true;
+      }).map(item => ({ ...item, source: 'sermon' }));
+      events.push(...sermons);
+    }
+
+    // Get devotions (for 'devotions' and 'combined' views)
+    if (currentView === 'devotions' || currentView === 'combined') {
+      const devotions = devotionLessons.filter(item => {
+        if (!item.scheduled_date) return false;
+        const itemDate = item.scheduled_date.split('T')[0];
+        return itemDate === dateStr;
+      }).map(item => ({ ...item, source: 'devotion' }));
+      events.push(...devotions);
+    }
+
+    return events;
   };
 
   const isPreparedSermon = (event) => {
@@ -846,27 +1013,46 @@ export default function App() {
   const handleDrop = async (newDate) => {
     if (!draggedEvent) return;
 
-    const oldDate = draggedEvent.sermon_date;
+    // Check if this is a devotion or sermon
+    const isDevotionDrag = draggedEvent.source === 'devotion' || draggedEvent.scheduled_date !== undefined;
+
+    const oldDate = isDevotionDrag ? draggedEvent.scheduled_date : draggedEvent.sermon_date;
     if (oldDate === newDate) {
       setDraggedEvent(null);
       return;
     }
 
-    // Optimistically update UI
-    const updatedEvent = { ...draggedEvent, sermon_date: newDate };
-    setSchedule(prev => prev.map(s => s.id === draggedEvent.id ? updatedEvent : s));
-    setDraggedEvent(null);
+    if (isDevotionDrag) {
+      // Handle devotion drop with cascade reschedule
+      // This will move the dragged lesson AND shift all following lessons to valid days
+      setDraggedEvent(null);
+      showToast('Rescheduling devotions...', 'info');
 
-    try {
-      await api.updateScheduleEntry(draggedEvent.id, {
-        ...draggedEvent,
-        sermon_date: newDate
-      });
-      showToast('Date updated!', 'success');
-    } catch (err) {
-      // Revert on error
-      setSchedule(prev => prev.map(s => s.id === draggedEvent.id ? draggedEvent : s));
-      showToast('Failed to update date: ' + err.message, 'error');
+      try {
+        const result = await api.cascadeRescheduleDevotions(draggedEvent.id, newDate);
+        // Reload devotions to get the updated schedule
+        await loadDevotions(true);
+        showToast(`Rescheduled ${result.rescheduled} devotion${result.rescheduled !== 1 ? 's' : ''}!`, 'success');
+      } catch (err) {
+        showToast('Failed to reschedule: ' + err.message, 'error');
+      }
+    } else {
+      // Handle sermon drop
+      const updatedEvent = { ...draggedEvent, sermon_date: newDate };
+      setSchedule(prev => prev.map(s => s.id === draggedEvent.id ? updatedEvent : s));
+      setDraggedEvent(null);
+
+      try {
+        await api.updateScheduleEntry(draggedEvent.id, {
+          ...draggedEvent,
+          sermon_date: newDate
+        });
+        showToast('Date updated!', 'success');
+      } catch (err) {
+        // Revert on error
+        setSchedule(prev => prev.map(s => s.id === draggedEvent.id ? draggedEvent : s));
+        showToast('Failed to update date: ' + err.message, 'error');
+      }
     }
   };
 
@@ -1174,10 +1360,7 @@ export default function App() {
         <div className="glass-card rounded-2xl overflow-hidden">
           {/* Top Navigation Bar */}
           <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-sage/10">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <span className="text-xl sm:text-2xl">📖</span>
-              <span className="text-sm sm:text-lg tracking-tight font-semibold text-ink">Bible Teaching Planner</span>
-            </div>
+            <ViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
 
             {/* Tab Switcher */}
             <div className="flex items-center gap-1 bg-sage-50/50 rounded-full p-1">
@@ -1205,8 +1388,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Series Timeline - integrated into header, only on Calendar tab */}
-          {activeTab === 'calendar' && (
+          {/* Series Timeline - integrated into header, only on Calendar tab (not for combined view) */}
+          {activeTab === 'calendar' && currentView !== 'combined' && (
             <div className="border-t border-sage/10">
               {/* Toggle Header */}
               <div className="px-4 sm:px-6 py-2 flex items-center justify-between">
@@ -1226,8 +1409,12 @@ export default function App() {
                 </button>
                 {showTimeline && (
                   <button
-                    onClick={() => {/* Will be handled by SeriesTimeline's onAddSeries */}}
-                    className="w-6 h-6 rounded-full bg-sage/10 hover:bg-sage/20 text-sage-600 flex items-center justify-center transition-colors text-sm"
+                    onClick={() => setShowAddModal(true)}
+                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors text-sm ${
+                      currentView === 'devotions'
+                        ? 'bg-amber/10 hover:bg-amber/20 text-amber-600'
+                        : 'bg-sage/10 hover:bg-sage/20 text-sage-600'
+                    }`}
                     title="Add series to timeline"
                   >
                     +
@@ -1243,9 +1430,10 @@ export default function App() {
               >
                 <div className="px-4 sm:px-6 pb-3">
                   <SeriesTimeline
-                    series={seriesOptions}
-                    schedule={schedule}
+                    series={currentView === 'devotions' ? devotionSeriesForTimeline : seriesOptions}
+                    schedule={currentView === 'devotions' ? devotionLessons : schedule}
                     currentDate={currentDate}
+                    isDevotionView={currentView === 'devotions'}
                     onSeriesClick={(s) => {
                       // Navigate to the series start date in calendar
                       if (s.startDate) {
@@ -1253,7 +1441,7 @@ export default function App() {
                         setCurrentDate(new Date(d.getFullYear(), d.getMonth(), 1));
                       }
                     }}
-                    onSeriesUpdate={async (seriesId, updates) => {
+                    onSeriesUpdate={currentView === 'devotions' ? null : async (seriesId, updates) => {
                       try {
                         await api.updateSeries(seriesId, updates);
                         // Refresh series list
@@ -1269,10 +1457,17 @@ export default function App() {
                     }}
                     onAddSeries={async (title, startDate, endDate) => {
                       try {
-                        await api.addSeries(title, startDate, endDate);
-                        // Refresh series list
-                        const freshSeries = await api.fetchSeries();
-                        setSeriesOptions(freshSeries);
+                        if (currentView === 'devotions') {
+                          await api.addDevotionSeries(title, startDate, endDate);
+                          // Refresh devotion series list
+                          const freshSeries = await api.fetchDevotionSeries();
+                          setDevotionSeries(freshSeries);
+                        } else {
+                          await api.addSeries(title, startDate, endDate);
+                          // Refresh sermon series list
+                          const freshSeries = await api.fetchSeries();
+                          setSeriesOptions(freshSeries);
+                        }
                         showToast('Series created!', 'success');
                       } catch (err) {
                         showToast('Failed to create series: ' + err.message, 'error');
@@ -1291,6 +1486,29 @@ export default function App() {
         {/* Calendar Tab */}
         {activeTab === 'calendar' && (
           <div className="glass-card overflow-hidden animate-card-in">
+            {/* Weekly Layout */}
+            {VIEWS[currentView]?.layout === 'weekly' ? (
+              <div className="p-4">
+                <WeeklyCalendar
+                  sermons={schedule}
+                  devotions={devotionLessons}
+                  currentDate={currentDate}
+                  onDateChange={setCurrentDate}
+                  onEventClick={(event) => {
+                    if (event.source === 'devotion') {
+                      setSelectedDevotionLesson(event);
+                    } else {
+                      setEditingEntry({ ...event });
+                    }
+                  }}
+                  onEventDragStart={setDraggedEvent}
+                  onEventDragEnd={() => setDraggedEvent(null)}
+                  onDayDrop={handleDrop}
+                  draggedEvent={draggedEvent}
+                />
+              </div>
+            ) : (
+            <>
             {/* Calendar Controls */}
             <div className="p-3 sm:p-4 border-b border-sage/10 bg-gradient-to-r from-sage-50/50 to-white/50 relative">
               {/* Month/Year Navigation - Truly Centered */}
@@ -1465,20 +1683,30 @@ export default function App() {
 
                               <div className="space-y-0.5 sm:space-y-1">
                                 {events.map(event => {
+                                  // Determine display based on source
+                                  const isDevotionItem = event.source === 'devotion';
                                   const lessonType = event.lesson_type || event.properties?.lesson_type;
-                                  const name = event.sermon_name || event.title || lessonType || '—';
-                                  const isPrepared = isPreparedSermon(event);
+                                  const name = isDevotionItem
+                                    ? getDevotionDisplayTitle(event)
+                                    : (event.sermon_name || event.properties?.sermon_name || event.title || lessonType || '—');
+                                  const isPrepared = isDevotionItem
+                                    ? isDevotionPrepared(event)
+                                    : isPreparedSermon(event);
                                   const shouldDim = hidePrepared && isPrepared;
+                                  const colorClass = isDevotionItem
+                                    ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                                    : getLessonTypeColor(lessonType);
 
                                   return (
                                     <button
                                       key={event.id}
                                       draggable
-                                      onDragStart={() => setDraggedEvent(event)}
+                                      onDragStart={() => setDraggedEvent({ ...event, source: isDevotionItem ? 'devotion' : 'sermon' })}
                                       onDragEnd={() => setDraggedEvent(null)}
-                                      onClick={() => setEditingEntry({ ...event })}
-                                      className={`entry-card w-full text-left px-1 sm:px-1.5 py-0.5 sm:py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing ${getLessonTypeColor(lessonType)} ${draggedEvent?.id === event.id ? 'opacity-50' : ''} ${shouldDim ? 'opacity-40' : ''}`}
+                                      onClick={() => isDevotionItem ? setSelectedDevotionLesson(event) : setEditingEntry({ ...event })}
+                                      className={`entry-card relative w-full text-left px-1 sm:px-1.5 py-0.5 sm:py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing ${colorClass} ${draggedEvent?.id === event.id ? 'opacity-50' : ''} ${shouldDim ? 'opacity-40' : ''}`}
                                     >
+                                      {isPrepared && <span className="star-indicator" />}
                                       {name}
                                     </button>
                                   );
@@ -1548,46 +1776,100 @@ export default function App() {
               )}
             </div>
 
-            {/* Legend */}
-            <div className="p-3 sm:p-4 border-t border-sage/10 bg-sage-50/30 text-xs sm:text-sm">
-              {/* Header row: Legend label + Move Sermons button */}
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium uppercase tracking-wider text-[10px] text-ink/50">Legend</span>
-                <button
-                  onClick={() => setShowShiftModal(true)}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 hover:bg-white text-ink/70 hover:text-ink rounded-full text-xs sm:text-sm font-medium transition-all shadow-sm"
-                >
-                  Move Sermons
-                </button>
-              </div>
-              {/* Color indicators row */}
-              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded bg-sage-100 border border-sage-400" />
-                  <span className="text-ink/70">Sermon</span>
+            {/* Footer - View-specific content */}
+            <div className={`p-3 sm:p-4 border-t ${currentView === 'devotions' ? 'border-amber/10 bg-amber-50/30' : currentView === 'combined' ? 'border-slate/10 bg-slate-50/30' : 'border-sage/10 bg-sage-50/30'} text-xs sm:text-sm`}>
+              {/* Sermons View Footer */}
+              {currentView === 'sermons' && (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium uppercase tracking-wider text-[10px] text-ink/50">Legend</span>
+                    <button
+                      onClick={() => setShowShiftModal(true)}
+                      className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 hover:bg-white text-ink/70 hover:text-ink rounded-full text-xs sm:text-sm font-medium transition-all shadow-sm"
+                    >
+                      Move Sermons
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-sage-100 border border-sage-400" />
+                      <span className="text-ink/70">Sermon</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-sky-50 border border-sky-300" />
+                      <span className="text-ink/70">Bible Lesson</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-teal-50 border border-teal-300" />
+                      <span className="text-ink/70">Short English</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-amber-50 border border-amber-300" />
+                      <span className="text-ink/70">Devotional</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-violet-50 border border-violet-300" />
+                      <span className="text-ink/70">Children's</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-rose-50 border border-rose-300" />
+                      <span className="text-ink/70">Video</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Devotions View Footer */}
+              {currentView === 'devotions' && (
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    {activeDevotionSeries ? (
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className="text-[10px] font-medium uppercase tracking-wider text-amber-600 mb-0.5">Active Series</div>
+                          <div className="font-semibold text-ink">{activeDevotionSeries.title}</div>
+                          {activeDevotionSeries.what_days_of_the_week && (
+                            <div className="text-[10px] text-ink/50 mt-0.5">
+                              {Array.isArray(activeDevotionSeries.what_days_of_the_week)
+                                ? activeDevotionSeries.what_days_of_the_week.join(', ')
+                                : activeDevotionSeries.what_days_of_the_week}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-ink/50">No active series</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShowPlanMonthModal(true)}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 btn-themed text-xs sm:text-sm"
+                  >
+                    Schedule Next 30 Days
+                  </button>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded bg-sky-50 border border-sky-300" />
-                  <span className="text-ink/70">Bible Lesson</span>
+              )}
+
+              {/* Combined View Footer */}
+              {currentView === 'combined' && (
+                <div className="flex items-center gap-4 sm:gap-6">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded bg-sage-100 border border-sage-400" />
+                    <span className="text-ink/70">Sermons</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded bg-amber-100 border border-amber-400" />
+                    <span className="text-ink/70">Devotions</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs">⭐</span>
+                    <span className="text-ink/70">Prepared</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded bg-teal-50 border border-teal-300" />
-                  <span className="text-ink/70">Short English</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded bg-amber-50 border border-amber-300" />
-                  <span className="text-ink/70">Devotional</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded bg-violet-50 border border-violet-300" />
-                  <span className="text-ink/70">Children's</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded bg-rose-50 border border-rose-300" />
-                  <span className="text-ink/70">Video</span>
-                </div>
-              </div>
+              )}
             </div>
+            </>
+            )}
           </div>
         )}
 
@@ -1949,6 +2231,40 @@ export default function App() {
           />
         </Modal>
       )}
+
+      {/* Devotion Lesson Detail Popup */}
+      <ItemDetailPopup
+        item={selectedDevotionLesson}
+        source="devotion"
+        isOpen={!!selectedDevotionLesson}
+        onClose={() => setSelectedDevotionLesson(null)}
+        onUpdate={(updatedItem) => {
+          // Update the lesson in the local state
+          setDevotionLessons(prev =>
+            prev.map(lesson =>
+              lesson.id === updatedItem.id ? updatedItem : lesson
+            )
+          );
+          showToast('Devotion lesson updated', 'success');
+        }}
+        onEdit={(item) => {
+          // For now, just show a toast - full edit modal can be added later
+          showToast('Edit functionality coming soon', 'info');
+        }}
+      />
+
+      {/* Plan Month Modal for Devotions */}
+      <PlanMonthModal
+        isOpen={showPlanMonthModal}
+        onClose={() => setShowPlanMonthModal(false)}
+        activeSeries={activeDevotionSeries}
+        lessons={devotionLessons}
+        onPlanComplete={(result) => {
+          // Refresh devotion lessons after planning
+          loadDevotions(true);
+          showToast(`Scheduled ${result.scheduled || 'lessons'} for the next 30 days`, 'success');
+        }}
+      />
 
       {/* Toast */}
       {toast && (

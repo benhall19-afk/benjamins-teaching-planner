@@ -40,26 +40,49 @@ let COLLECTIONS = {
 };
 
 // ============================================
+// DEVOTIONS API CONFIGURATION
+// ============================================
+
+const DEVOTIONS_API_URL = process.env.DEVOTIONS_API_URL || '';
+const DEVOTIONS_API_KEY = process.env.DEVOTIONS_API_KEY || '';
+
+// Known collection IDs for devotions (from API discovery)
+const DEVOTIONS_COLLECTIONS = {
+  series: 'DD29A779-691F-4A21-A84E-57EE4B6CFA06',
+  lessons: '2F99FAB6-A464-4623-B81A-B4E260C336D1'
+};
+
+// ============================================
 // IN-MEMORY CACHE WITH TTL
 // ============================================
 
 const cache = {
-  schedule: { data: null, timestamp: 0 },
-  series: { data: null, timestamp: 0 },
-  hashtags: { data: null, timestamp: 0 }
+  schedule: { data: null, timestamp: 0, refreshing: false },
+  series: { data: null, timestamp: 0, refreshing: false },
+  hashtags: { data: null, timestamp: 0, refreshing: false },
+  sermons: { data: null, timestamp: 0, refreshing: false }
 };
-const CACHE_TTL = 30000; // 30 seconds
+const CACHE_TTL = 300000; // 5 minutes - data doesn't change often
+const STALE_TTL = 600000; // 10 minutes - serve stale data while refreshing
 
 function getCached(key) {
   const entry = cache[key];
   if (entry.data && (Date.now() - entry.timestamp) < CACHE_TTL) {
-    return entry.data;
+    return { data: entry.data, fresh: true };
+  }
+  // Return stale data if within stale window (will trigger background refresh)
+  if (entry.data && (Date.now() - entry.timestamp) < STALE_TTL) {
+    return { data: entry.data, fresh: false };
   }
   return null;
 }
 
 function setCache(key, data) {
-  cache[key] = { data, timestamp: Date.now() };
+  cache[key] = { data, timestamp: Date.now(), refreshing: false };
+}
+
+function setRefreshing(key, value) {
+  if (cache[key]) cache[key].refreshing = value;
 }
 
 function invalidateCache(key) {
@@ -68,6 +91,42 @@ function invalidateCache(key) {
   } else {
     // Invalidate all
     Object.keys(cache).forEach(k => cache[k] = { data: null, timestamp: 0 });
+  }
+}
+
+// ============================================
+// DEVOTIONS CACHE
+// ============================================
+
+const devotionsCache = {
+  series: { data: null, timestamp: 0, refreshing: false },
+  lessons: { data: null, timestamp: 0, refreshing: false }
+};
+
+function getCachedDevotions(key) {
+  const entry = devotionsCache[key];
+  if (entry.data && (Date.now() - entry.timestamp) < CACHE_TTL) {
+    return { data: entry.data, fresh: true };
+  }
+  if (entry.data && (Date.now() - entry.timestamp) < STALE_TTL) {
+    return { data: entry.data, fresh: false };
+  }
+  return null;
+}
+
+function setCacheDevotions(key, data) {
+  devotionsCache[key] = { data, timestamp: Date.now(), refreshing: false };
+}
+
+function setRefreshingDevotions(key, value) {
+  if (devotionsCache[key]) devotionsCache[key].refreshing = value;
+}
+
+function invalidateCacheDevotions(key) {
+  if (key) {
+    devotionsCache[key] = { data: null, timestamp: 0 };
+  } else {
+    Object.keys(devotionsCache).forEach(k => devotionsCache[k] = { data: null, timestamp: 0 });
   }
 }
 
@@ -116,6 +175,32 @@ async function craftRequest(endpoint, options = {}) {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Craft API error (${response.status}): ${errorText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Make authenticated request to Devotions Craft API
+ */
+async function devotionsRequest(endpoint, options = {}) {
+  if (!DEVOTIONS_API_URL || !DEVOTIONS_API_KEY) {
+    throw new Error('Devotions API not configured');
+  }
+
+  const url = `${DEVOTIONS_API_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${DEVOTIONS_API_KEY}`,
+      ...options.headers
+    }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Devotions API error (${response.status}): ${errorText}`);
   }
 
   return response.json();
@@ -351,63 +436,83 @@ app.get('/api/sermons', async (req, res) => {
   }
 });
 
+// Helper to fetch and process schedule data
+async function fetchScheduleData() {
+  if (!COLLECTIONS.schedule) {
+    throw new Error('Schedule collection not found');
+  }
+  const result = await getCollectionItems(COLLECTIONS.schedule);
+  const rawSchedule = result.items || result;
+
+  return rawSchedule.map(item => {
+    let contentMarkdown = '';
+    if (Array.isArray(item.content)) {
+      contentMarkdown = item.content
+        .filter(block => block.markdown)
+        .map(block => block.markdown)
+        .join('\n');
+    } else if (item.contentMarkdown) {
+      contentMarkdown = item.contentMarkdown;
+    } else if (typeof item.content === 'string') {
+      contentMarkdown = item.content;
+    }
+
+    return {
+      id: item.id,
+      sermon_name: item.sermon_name || item.title || '',
+      content: contentMarkdown,
+      lesson_type: item.properties?.lesson_type || '',
+      preacher: item.properties?.preacher || '',
+      sermon_date: item.properties?.sermon_date || '',
+      special_event: item.properties?.special_event || '',
+      status: item.properties?.status || '',
+      notes: item.properties?.notes || '',
+      rating: starsToNumber(item.properties?.rating),
+      series: item.properties?.sermon_series?.relations?.[0]?.title || '',
+      sermon_series_id: item.properties?.sermon_series?.relations?.[0]?.blockId || null,
+      sermon_information_added: item.properties?.sermon_information_added || false,
+      sermon_themefocus: item.properties?.sermon_themefocus || '',
+      audience: item.properties?.audience || '',
+      seasonholiday: item.properties?.seasonholiday || '',
+      key_takeaway: item.properties?.key_takeaway || '',
+      hashtags: item.properties?.hashtags || '',
+      primary_text: item.properties?.primary_text || '',
+      series_number: item.properties?.series_number || null,
+      properties: item.properties
+    };
+  });
+}
+
 // Get schedule (Bible Teaching Overview)
 app.get('/api/schedule', async (req, res) => {
   try {
     // Check cache first
     const cached = getCached('schedule');
     if (cached) {
-      return res.json(cached);
+      // Serve cached data immediately
+      res.json(cached.data);
+
+      // If stale, refresh in background (don't await)
+      if (!cached.fresh && !cache.schedule.refreshing) {
+        setRefreshing('schedule', true);
+        fetchScheduleData()
+          .then(data => {
+            setCache('schedule', data);
+            console.log('Schedule cache refreshed in background');
+          })
+          .catch(err => {
+            console.error('Background refresh failed:', err.message);
+            setRefreshing('schedule', false);
+          });
+      }
+      return;
     }
 
     if (!COLLECTIONS.schedule) {
       return res.status(503).json({ error: 'Schedule collection not found. Check API connection.' });
     }
-    const result = await getCollectionItems(COLLECTIONS.schedule);
-    const rawSchedule = result.items || result;
 
-    // Flatten properties into top-level fields for frontend compatibility
-    const schedule = rawSchedule.map(item => {
-      // Extract content from document body (array of blocks with markdown)
-      let contentMarkdown = '';
-      if (Array.isArray(item.content)) {
-        contentMarkdown = item.content
-          .filter(block => block.markdown)
-          .map(block => block.markdown)
-          .join('\n');
-      } else if (item.contentMarkdown) {
-        contentMarkdown = item.contentMarkdown;
-      } else if (typeof item.content === 'string') {
-        contentMarkdown = item.content;
-      }
-
-      return {
-        id: item.id,
-        sermon_name: item.sermon_name || item.title || '',
-        content: contentMarkdown, // Document body content for preview
-        lesson_type: item.properties?.lesson_type || '',
-        preacher: item.properties?.preacher || '',
-        sermon_date: item.properties?.sermon_date || '',
-        special_event: item.properties?.special_event || '',
-        status: item.properties?.status || '',
-        notes: item.properties?.notes || '',
-        rating: starsToNumber(item.properties?.rating),
-        // Series is a RELATION field - extract title and blockId
-        series: item.properties?.sermon_series?.relations?.[0]?.title || '',
-        sermon_series_id: item.properties?.sermon_series?.relations?.[0]?.blockId || null,
-        // Other metadata fields
-        sermon_information_added: item.properties?.sermon_information_added || false,
-        sermon_themefocus: item.properties?.sermon_themefocus || '',
-        audience: item.properties?.audience || '',
-        seasonholiday: item.properties?.seasonholiday || '',
-        key_takeaway: item.properties?.key_takeaway || '',
-        hashtags: item.properties?.hashtags || '',
-        primary_text: item.properties?.primary_text || '',
-        series_number: item.properties?.series_number || null,
-        properties: item.properties // Keep original for reference
-      };
-    });
-
+    const schedule = await fetchScheduleData();
     setCache('schedule', schedule);
     scheduleCache = schedule;
     res.json(schedule);
@@ -439,29 +544,51 @@ app.get('/api/hashtags', async (req, res) => {
   }
 });
 
+// Helper to fetch series data
+async function fetchSeriesData() {
+  if (!COLLECTIONS.series) {
+    throw new Error('Series collection not found');
+  }
+  const result = await getCollectionItems(COLLECTIONS.series);
+  const rawSeries = result.items || result;
+
+  return rawSeries.map(item => ({
+    id: item.id,
+    title: item.title || '',
+    startDate: item.properties?.series_start_date || null,
+    endDate: item.properties?.series_end_date || null
+  }));
+}
+
 // Get sermon series (from relationship database)
 app.get('/api/series', async (req, res) => {
   try {
     // Check cache first
     const cached = getCached('series');
     if (cached) {
-      return res.json(cached);
+      res.json(cached.data);
+
+      // If stale, refresh in background
+      if (!cached.fresh && !cache.series.refreshing) {
+        setRefreshing('series', true);
+        fetchSeriesData()
+          .then(data => {
+            setCache('series', data);
+            console.log('Series cache refreshed in background');
+          })
+          .catch(err => {
+            console.error('Series background refresh failed:', err.message);
+            setRefreshing('series', false);
+          });
+      }
+      return;
     }
 
     if (!COLLECTIONS.series) {
       return res.status(503).json({ error: 'Series collection not found. Check API connection.' });
     }
-    const result = await getCollectionItems(COLLECTIONS.series);
-    const rawSeries = result.items || result;
 
-    // Extract series with dates for timeline
-    const series = rawSeries.map(item => ({
-      id: item.id,
-      title: item.title || '',
-      startDate: item.properties?.series_start_date || null,
-      endDate: item.properties?.series_end_date || null
-    }));
-
+    const series = await fetchSeriesData();
     setCache('series', series);
     res.json(series);
   } catch (error) {
@@ -840,6 +967,369 @@ app.post('/api/schedule/batch-update', async (req, res) => {
   }
 });
 
+// ============================================
+// DEVOTIONS API ROUTES
+// ============================================
+
+// Helpers to fetch devotions data
+async function fetchDevotionSeriesData() {
+  const result = await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.series}/items`);
+  return (result.items || result).map(item => ({
+    id: item.id,
+    title: item.title || '',
+    series_start_date: item.properties?.series_start_date || null,
+    series_completion_date_goal: item.properties?.series_completion_date_goal || null,
+    series_completion_date: item.properties?.series_completion_date || null,
+    current_estimated_completion_date: item.properties?.current_estimated_completion_date || null,
+    what_days_of_the_week: item.properties?.what_days_of_the_week || [],
+    course: item.properties?.course || null,
+    properties: item.properties
+  }));
+}
+
+async function fetchDevotionLessonsData() {
+  const result = await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.lessons}/items`);
+  return (result.items || result).map(item => ({
+    id: item.id,
+    title: item.title || '',
+    lesson_order: item.properties?.lesson_order || null,
+    week_lesson: item.properties?.week_lesson || null,
+    day: item.properties?.day || null,
+    category: item.properties?.category || null,
+    scheduled_date: item.properties?.scheduled_date || null,
+    last_taught: item.properties?.last_taught || null,
+    prepared_to_teach: item.properties?.prepared_to_teach || false,
+    properties: item.properties,
+    content: item.content || []
+  }));
+}
+
+// Get devotion series (with days of week configuration)
+app.get('/api/devotions/series', async (req, res) => {
+  try {
+    const cached = getCachedDevotions('series');
+    if (cached) {
+      res.json(cached.data);
+
+      if (!cached.fresh && !devotionsCache.series.refreshing) {
+        setRefreshingDevotions('series', true);
+        fetchDevotionSeriesData()
+          .then(data => {
+            setCacheDevotions('series', data);
+            console.log('Devotion series cache refreshed in background');
+          })
+          .catch(err => {
+            console.error('Devotion series background refresh failed:', err.message);
+            setRefreshingDevotions('series', false);
+          });
+      }
+      return;
+    }
+
+    const series = await fetchDevotionSeriesData();
+    setCacheDevotions('series', series);
+    res.json(series);
+  } catch (error) {
+    console.error('Failed to fetch devotion series:', error);
+    res.status(500).json({ error: 'Failed to fetch devotion series', details: error.message });
+  }
+});
+
+// Add a new devotion series
+app.post('/api/devotions/series', async (req, res) => {
+  try {
+    const { title, startDate, endDate } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const properties = {};
+    if (startDate) properties.series_start_date = startDate;
+    if (endDate) properties.series_completion_date_goal = endDate;
+
+    const result = await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.series}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ items: [{ title, properties }] })
+    });
+
+    invalidateCacheDevotions('series');
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to add devotion series:', error);
+    res.status(500).json({ error: 'Failed to add devotion series', details: error.message });
+  }
+});
+
+// Get all devotion lessons
+app.get('/api/devotions/lessons', async (req, res) => {
+  try {
+    const cached = getCachedDevotions('lessons');
+    if (cached) {
+      res.json(cached.data);
+
+      if (!cached.fresh && !devotionsCache.lessons.refreshing) {
+        setRefreshingDevotions('lessons', true);
+        fetchDevotionLessonsData()
+          .then(data => {
+            setCacheDevotions('lessons', data);
+            console.log('Devotion lessons cache refreshed in background');
+          })
+          .catch(err => {
+            console.error('Devotion lessons background refresh failed:', err.message);
+            setRefreshingDevotions('lessons', false);
+          });
+      }
+      return;
+    }
+
+    const lessons = await fetchDevotionLessonsData();
+    setCacheDevotions('lessons', lessons);
+    res.json(lessons);
+  } catch (error) {
+    console.error('Failed to fetch devotion lessons:', error);
+    res.status(500).json({ error: 'Failed to fetch devotion lessons', details: error.message });
+  }
+});
+
+// Update a devotion lesson
+app.put('/api/devotions/lessons/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const craftUpdates = { id, properties: {} };
+
+    // Map fields to properties
+    if (updates.scheduled_date !== undefined) craftUpdates.properties.scheduled_date = updates.scheduled_date;
+    if (updates.last_taught !== undefined) craftUpdates.properties.last_taught = updates.last_taught;
+    if (updates.prepared_to_teach !== undefined) craftUpdates.properties.prepared_to_teach = updates.prepared_to_teach;
+
+    const result = await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.lessons}/items`, {
+      method: 'PUT',
+      body: JSON.stringify({ itemsToUpdate: [craftUpdates] })
+    });
+
+    invalidateCacheDevotions('lessons');
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error('Failed to update devotion lesson:', error);
+    res.status(500).json({ error: 'Failed to update devotion lesson', details: error.message });
+  }
+});
+
+// Plan lessons for the next 30 days
+app.post('/api/devotions/plan-month', async (req, res) => {
+  try {
+    // 1. Get active series (first one with a start date)
+    const seriesResult = await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.series}/items`);
+    const allSeries = seriesResult.items || seriesResult;
+    const activeSeries = allSeries.find(s => s.properties?.series_start_date && s.title);
+
+    if (!activeSeries) {
+      return res.status(400).json({ error: 'No active series found' });
+    }
+
+    const daysOfWeek = activeSeries.properties?.what_days_of_the_week || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    // 2. Get all lessons and sort by lesson_order (or fall back to week/day)
+    const lessonsResult = await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.lessons}/items`);
+    const allLessons = lessonsResult.items || lessonsResult;
+
+    // Parse week number from week_lesson (e.g., "Week 1 - ..." → 1)
+    const getWeekNum = (weekLesson) => {
+      if (!weekLesson) return 999;
+      const match = weekLesson.match(/Week\s+(\d+)/i);
+      return match ? parseInt(match[1]) : 999;
+    };
+
+    // Parse day number (e.g., "Day 1" → 1)
+    const getDayNum = (day) => {
+      if (!day) return 999;
+      const match = day.match(/Day\s+(\d+)/i);
+      return match ? parseInt(match[1]) : 999;
+    };
+
+    const lessons = allLessons.sort((a, b) => {
+      // Prefer lesson_order if both have it
+      const orderA = a.properties?.lesson_order;
+      const orderB = b.properties?.lesson_order;
+
+      if (orderA != null && orderB != null) {
+        return orderA - orderB;
+      }
+
+      // Fall back to week/day sorting
+      const weekA = getWeekNum(a.properties?.week_lesson);
+      const weekB = getWeekNum(b.properties?.week_lesson);
+      if (weekA !== weekB) return weekA - weekB;
+      return getDayNum(a.properties?.day) - getDayNum(b.properties?.day);
+    });
+
+    // 3. Find last completed lesson (has last_taught date)
+    const completedLessons = lessons.filter(l => l.properties?.last_taught);
+    let startIndex = 0;
+
+    if (completedLessons.length > 0) {
+      // Sort completed by last_taught date to find the most recent
+      completedLessons.sort((a, b) =>
+        new Date(b.properties.last_taught) - new Date(a.properties.last_taught)
+      );
+      const lastCompleted = completedLessons[0];
+      const lastCompletedIndex = lessons.findIndex(l => l.id === lastCompleted.id);
+      startIndex = lastCompletedIndex + 1;
+    }
+
+    // 4. Generate next 30 calendar days matching days_of_week
+    const dayMap = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
+    const allowedDays = daysOfWeek.map(d => dayMap[d]).filter(d => d !== undefined);
+
+    const scheduleDates = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let current = new Date(today);
+
+    // Generate up to 30 matching dates (or stop after 90 days)
+    const maxDaysToSearch = 90;
+    let daysSearched = 0;
+
+    while (scheduleDates.length < 30 && daysSearched < maxDaysToSearch) {
+      if (allowedDays.includes(current.getDay())) {
+        scheduleDates.push(current.toISOString().split('T')[0]);
+      }
+      current.setDate(current.getDate() + 1);
+      daysSearched++;
+    }
+
+    // 5. Assign scheduled_date to lessons starting from startIndex
+    const updates = [];
+    for (let i = 0; i < scheduleDates.length && (startIndex + i) < lessons.length; i++) {
+      const lesson = lessons[startIndex + i];
+      updates.push({
+        id: lesson.id,
+        properties: { scheduled_date: scheduleDates[i] }
+      });
+    }
+
+    // 6. Batch update
+    if (updates.length > 0) {
+      await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.lessons}/items`, {
+        method: 'PUT',
+        body: JSON.stringify({ itemsToUpdate: updates })
+      });
+    }
+
+    invalidateCacheDevotions('lessons');
+    res.json({
+      success: true,
+      scheduled: updates.length,
+      activeSeries: activeSeries.title,
+      daysOfWeek,
+      startFromLesson: startIndex < lessons.length ? lessons[startIndex].title : null
+    });
+  } catch (error) {
+    console.error('Failed to plan month:', error);
+    res.status(500).json({ error: 'Failed to plan month', details: error.message });
+  }
+});
+
+// Cascade reschedule after a lesson is moved
+app.post('/api/devotions/cascade-reschedule', async (req, res) => {
+  try {
+    const { fromLessonId, newDate } = req.body;
+
+    if (!fromLessonId || !newDate) {
+      return res.status(400).json({ error: 'fromLessonId and newDate are required' });
+    }
+
+    // Get active series for days_of_week
+    const seriesResult = await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.series}/items`);
+    const allSeries = seriesResult.items || seriesResult;
+    const activeSeries = allSeries.find(s => s.properties?.series_start_date && s.title);
+    const daysOfWeek = activeSeries?.properties?.what_days_of_the_week || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    const dayMap = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
+    const allowedDays = daysOfWeek.map(d => dayMap[d]).filter(d => d !== undefined);
+
+    // Get all lessons sorted
+    const lessonsResult = await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.lessons}/items`);
+    const allLessons = lessonsResult.items || lessonsResult;
+
+    const getWeekNum = (weekLesson) => {
+      if (!weekLesson) return 999;
+      const match = weekLesson.match(/Week\s+(\d+)/i);
+      return match ? parseInt(match[1]) : 999;
+    };
+
+    const getDayNum = (day) => {
+      if (!day) return 999;
+      const match = day.match(/Day\s+(\d+)/i);
+      return match ? parseInt(match[1]) : 999;
+    };
+
+    const lessons = allLessons.sort((a, b) => {
+      const weekA = getWeekNum(a.properties?.week_lesson);
+      const weekB = getWeekNum(b.properties?.week_lesson);
+      if (weekA !== weekB) return weekA - weekB;
+      return getDayNum(a.properties?.day) - getDayNum(b.properties?.day);
+    });
+
+    // Find the moved lesson's index
+    const movedIndex = lessons.findIndex(l => l.id === fromLessonId);
+    if (movedIndex === -1) {
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+
+    // Generate dates starting from newDate
+    const scheduleDates = [newDate];
+    let current = new Date(newDate);
+    current.setDate(current.getDate() + 1);
+
+    // Get remaining lessons count after the moved one
+    const remainingCount = lessons.length - movedIndex - 1;
+
+    // Generate enough dates for remaining lessons
+    let generated = 0;
+    const maxDays = 180;
+    while (generated < remainingCount && generated < maxDays) {
+      if (allowedDays.includes(current.getDay())) {
+        scheduleDates.push(current.toISOString().split('T')[0]);
+        generated++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    // Build updates: moved lesson + all following lessons
+    const updates = [];
+    updates.push({
+      id: fromLessonId,
+      properties: { scheduled_date: newDate }
+    });
+
+    for (let i = 1; i < scheduleDates.length && (movedIndex + i) < lessons.length; i++) {
+      const lesson = lessons[movedIndex + i];
+      updates.push({
+        id: lesson.id,
+        properties: { scheduled_date: scheduleDates[i] }
+      });
+    }
+
+    // Batch update
+    if (updates.length > 0) {
+      await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.lessons}/items`, {
+        method: 'PUT',
+        body: JSON.stringify({ itemsToUpdate: updates })
+      });
+    }
+
+    invalidateCacheDevotions('lessons');
+    res.json({ success: true, rescheduled: updates.length });
+  } catch (error) {
+    console.error('Failed to cascade reschedule:', error);
+    res.status(500).json({ error: 'Failed to cascade reschedule', details: error.message });
+  }
+});
+
 // Analyze sermon with Claude (proxy to Claude API)
 app.post('/api/analyze-sermon', async (req, res) => {
   try {
@@ -1000,31 +1490,71 @@ app.get('*', (req, res) => {
 // START SERVER
 // ============================================
 
+// Pre-warm all caches on startup for instant first load
+async function prewarmCache() {
+  console.log('Pre-warming cache...');
+  const startTime = Date.now();
+
+  try {
+    // Fetch all data in parallel
+    const results = await Promise.allSettled([
+      COLLECTIONS.schedule ? fetchScheduleData().then(data => {
+        setCache('schedule', data);
+        console.log('  ✓ Schedule cache warmed');
+      }) : Promise.resolve(),
+      COLLECTIONS.series ? fetchSeriesData().then(data => {
+        setCache('series', data);
+        console.log('  ✓ Series cache warmed');
+      }) : Promise.resolve(),
+      DEVOTIONS_API_URL ? fetchDevotionSeriesData().then(data => {
+        setCacheDevotions('series', data);
+        console.log('  ✓ Devotion series cache warmed');
+      }) : Promise.resolve(),
+      DEVOTIONS_API_URL ? fetchDevotionLessonsData().then(data => {
+        setCacheDevotions('lessons', data);
+        console.log('  ✓ Devotion lessons cache warmed');
+      }) : Promise.resolve()
+    ]);
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const failed = results.filter(r => r.status === 'rejected').length;
+    console.log(`Cache pre-warmed in ${elapsed}s (${failed} failed)`);
+  } catch (error) {
+    console.error('Cache pre-warming failed:', error.message);
+  }
+}
+
 async function startServer() {
   // Initialize collections from Craft API
   await initializeCollections();
 
+  // Pre-warm cache before accepting requests (parallel fetch)
+  await prewarmCache();
+
   app.listen(PORT, () => {
     console.log(`
 ╔════════════════════════════════════════════════════════════╗
-║           SERMON MANAGER API SERVER                        ║
+║           MULTI-VIEW CALENDAR API SERVER                   ║
 ╠════════════════════════════════════════════════════════════╣
 ║  Server running on: http://localhost:${PORT}                  ║
+║  Cache: Pre-warmed and ready (5 min TTL)                   ║
 ║                                                            ║
-║  Craft API: ${CRAFT_API_URL ? 'Connected' : 'Not configured'}
+║  Sermons API: ${CRAFT_API_URL ? 'Connected' : 'Not configured'}
+║  Devotions API: ${DEVOTIONS_API_URL ? 'Connected' : 'Not configured'}
 ║                                                            ║
-║  Endpoints:                                                ║
-║    GET  /api/health          - Health check                ║
-║    GET  /api/collections     - List all collections        ║
-║    GET  /api/sermons         - Get all sermons             ║
+║  Sermon Endpoints:                                         ║
 ║    GET  /api/schedule        - Get schedule                ║
-║    GET  /api/hashtags        - Get hashtags                ║
-║    PUT  /api/sermons/:id     - Update sermon               ║
 ║    PUT  /api/schedule/:id    - Update schedule entry       ║
 ║    POST /api/schedule        - Add schedule entry          ║
 ║    DELETE /api/schedule/:id  - Delete schedule entry       ║
 ║    POST /api/schedule/batch-update - Batch update dates    ║
-║    POST /api/analyze-sermon  - AI sermon analysis          ║
+║                                                            ║
+║  Devotions Endpoints:                                      ║
+║    GET  /api/devotions/series   - Get devotion series      ║
+║    GET  /api/devotions/lessons  - Get all lessons          ║
+║    PUT  /api/devotions/lessons/:id - Update lesson         ║
+║    POST /api/devotions/plan-month - Schedule 30 days       ║
+║    POST /api/devotions/cascade-reschedule - Reschedule     ║
 ╚════════════════════════════════════════════════════════════╝
     `);
   });
