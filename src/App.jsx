@@ -1349,7 +1349,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative pb-24 md:pb-0">
       {/* Glossy background blobs */}
       <div className="glossy-blob glossy-blob-1" />
       <div className="glossy-blob glossy-blob-2" />
@@ -1362,8 +1362,8 @@ export default function App() {
           <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-sage/10">
             <ViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
 
-            {/* Tab Switcher */}
-            <div className="flex items-center gap-1 bg-sage-50/50 rounded-full p-1">
+            {/* Tab Switcher - Hidden on mobile, shown on md+ */}
+            <div className="hidden md:flex items-center gap-1 bg-sage-50/50 rounded-full p-1">
               <button
                 onClick={() => setActiveTab('calendar')}
                 className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all ${
@@ -2175,6 +2175,7 @@ export default function App() {
             isSaving={isSaving}
             showDelete
             seriesOptions={seriesOptions}
+            craftDeepLink={import.meta.env.VITE_CRAFT_SPACE_ID && editingEntry.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(editingEntry.id) ? `craftdocs://open?blockId=${editingEntry.id}&spaceId=${import.meta.env.VITE_CRAFT_SPACE_ID}` : null}
             onAddSeries={async (newSeries) => {
               try {
                 const result = await api.addSeries(newSeries);
@@ -2266,6 +2267,39 @@ export default function App() {
         }}
       />
 
+      {/* Mobile Bottom Navigation - Only visible on mobile */}
+      <nav className="mobile-bottom-nav md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+        <div className="flex items-center gap-1 bg-slate-900/95 backdrop-blur-lg rounded-full px-2 py-2 shadow-2xl">
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all ${
+              activeTab === 'calendar'
+                ? 'bg-slate-700/80 text-white'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span className="text-base">📅</span>
+            <span>Calendar</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('review')}
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all ${
+              activeTab === 'review'
+                ? 'bg-slate-700/80 text-white'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span className="text-base">📝</span>
+            <span>Review</span>
+            {sermonsNeedingInfo.length > 0 && (
+              <span className="bg-sage-500 text-white text-xs px-1.5 py-0.5 rounded-full ml-0.5">
+                {sermonsNeedingInfo.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </nav>
+
       {/* Toast */}
       {toast && (
         <Toast
@@ -2295,7 +2329,7 @@ function Modal({ children, onClose }) {
   );
 }
 
-function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, showDelete, seriesOptions = [], onAddSeries }) {
+function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, showDelete, seriesOptions = [], onAddSeries, craftDeepLink }) {
   const updateField = (field, value) => {
     onChange({
       ...entry,
@@ -2406,6 +2440,19 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
           <option value="archive">Archive</option>
         </select>
       </div>
+
+      {/* Open in Craft Link */}
+      {craftDeepLink && (
+        <a
+          href={craftDeepLink}
+          className="flex items-center justify-center gap-2 w-full py-2.5 text-sm font-medium rounded-full transition-all bg-gradient-to-r from-sage-100 to-sage-50 text-sage-700 hover:from-sage-200 hover:to-sage-100"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          Open in Craft
+        </a>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3">
         <button

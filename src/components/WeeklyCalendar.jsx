@@ -110,12 +110,12 @@ export default function WeeklyCalendar({
         </button>
 
         <div className="text-center">
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2">
             <span className="bg-slate-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">
               Week {getWeekNumber(weekDates[0])}
             </span>
-            <span className="text-ink/40">—</span>
-            <span className="font-medium text-ink">
+            <span className="text-ink/40 hidden md:inline">—</span>
+            <span className="font-medium text-ink text-sm md:text-base">
               {weekDates[0].toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
               {' - '}
               {weekDates[6].toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}

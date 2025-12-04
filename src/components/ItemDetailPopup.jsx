@@ -96,6 +96,13 @@ export default function ItemDetailPopup({
 
   const colorClass = source === 'sermon' ? 'sage' : 'amber';
 
+  // Generate Craft deeplink URL (only for items with valid UUID format)
+  const spaceId = import.meta.env.VITE_CRAFT_SPACE_ID;
+  const isValidUUID = item.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id);
+  const craftDeepLink = spaceId && isValidUUID
+    ? `craftdocs://open?blockId=${item.id}&spaceId=${spaceId}`
+    : null;
+
   // Extract content from item - handle both array of blocks and string formats
   const getContentMarkdown = () => {
     if (!item.content) return '';
@@ -282,19 +289,35 @@ export default function ItemDetailPopup({
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2.5 btn-glass text-sm"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => onEdit?.(item, source)}
-                  className="flex-1 px-4 py-2.5 btn-themed text-sm"
-                >
-                  Edit Details
-                </button>
+              <div className="flex flex-col gap-2 pt-2">
+                {/* Open in Craft Link */}
+                {craftDeepLink && (
+                  <a
+                    href={craftDeepLink}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-full transition-all
+                      bg-gradient-to-r ${source === 'sermon' ? 'from-sage-100 to-sage-50 text-sage-700 hover:from-sage-200 hover:to-sage-100' : 'from-amber-100 to-amber-50 text-amber-700 hover:from-amber-200 hover:to-amber-100'}
+                    `}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Open in Craft
+                  </a>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={onClose}
+                    className="flex-1 px-4 py-2.5 btn-glass text-sm"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => onEdit?.(item, source)}
+                    className="flex-1 px-4 py-2.5 btn-themed text-sm"
+                  >
+                    Edit Details
+                  </button>
+                </div>
               </div>
             </div>
           </div>
