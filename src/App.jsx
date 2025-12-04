@@ -1174,9 +1174,9 @@ export default function App() {
         <div className="glass-card rounded-2xl overflow-hidden">
           {/* Top Navigation Bar */}
           <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-sage/10">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <span className="text-xl sm:text-2xl">📖</span>
-              <span className="hidden sm:block text-lg tracking-tight font-semibold text-ink">Bible Teaching Planner</span>
+              <span className="text-sm sm:text-lg tracking-tight font-semibold text-ink">Bible Teaching Planner</span>
             </div>
 
             {/* Tab Switcher */}
@@ -1292,12 +1292,9 @@ export default function App() {
         {activeTab === 'calendar' && (
           <div className="glass-card overflow-hidden animate-card-in">
             {/* Calendar Controls */}
-            <div className="p-3 sm:p-4 border-b border-sage/10 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 bg-gradient-to-r from-sage-50/50 to-white/50">
-              {/* Left spacer - matches filters width for true centering */}
-              <div className="hidden sm:block order-1 sm:min-w-[280px]" />
-
-              {/* Month/Year Navigation - Centered */}
-              <div className="flex items-center justify-center gap-2 sm:gap-3 order-1 sm:order-2">
+            <div className="p-3 sm:p-4 border-b border-sage/10 bg-gradient-to-r from-sage-50/50 to-white/50 relative">
+              {/* Month/Year Navigation - Truly Centered */}
+              <div className="flex items-center justify-center gap-2 sm:gap-3">
                 <button
                   onClick={() => navigateMonth(-1)}
                   className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-white rounded-lg transition-colors text-lg sm:text-xl"
@@ -1306,7 +1303,7 @@ export default function App() {
                 </button>
                 <h2
                   onClick={() => setCurrentDate(new Date())}
-                  className="font-medium uppercase tracking-wider text-base sm:text-lg text-ink/60 min-w-36 sm:min-w-48 text-center cursor-pointer hover:text-ink transition-colors"
+                  className="font-medium uppercase tracking-wider text-base sm:text-lg text-ink/60 min-w-32 sm:min-w-48 text-center cursor-pointer hover:text-ink transition-colors"
                   title="Click to return to today"
                 >
                   {MONTH_NAMES[month]} {year}
@@ -1319,12 +1316,12 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Filters */}
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-center sm:justify-end order-2 sm:order-3 w-full sm:w-auto sm:min-w-[280px]">
+              {/* Left - Unscheduled button (desktop only, absolute) */}
+              <div className="hidden sm:flex items-center absolute left-3 sm:left-4 top-1/2 -translate-y-1/2">
                 {unscheduledSermons.length > 0 && (
                   <button
                     onClick={() => setShowUnscheduled(!showUnscheduled)}
-                    className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all flex-1 sm:flex-none ${
+                    className={`px-3 py-2 rounded-full text-sm font-medium transition-all ${
                       showUnscheduled
                         ? 'btn-glossy-sage'
                         : 'btn-glass'
@@ -1333,7 +1330,10 @@ export default function App() {
                     📋 Unscheduled ({unscheduledSermons.length})
                   </button>
                 )}
+              </div>
 
+              {/* Filter Icons - absolute right */}
+              <div className="flex items-center gap-1.5 absolute right-3 sm:right-4 top-1/2 -translate-y-1/2">
                 <button
                   onClick={() => setFilterBenjamin(!filterBenjamin)}
                   className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-base sm:text-lg transition-all shadow-sm ${
@@ -1359,6 +1359,22 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {/* Mobile-only: Unscheduled button */}
+            {unscheduledSermons.length > 0 && (
+              <div className="sm:hidden px-3 py-2 border-b border-sage/10 bg-gradient-to-r from-sage-50/50 to-white/50">
+                <button
+                  onClick={() => setShowUnscheduled(!showUnscheduled)}
+                  className={`w-full px-3 py-2 rounded-full text-sm font-medium transition-all ${
+                    showUnscheduled
+                      ? 'btn-glossy-sage'
+                      : 'btn-glass'
+                  }`}
+                >
+                  📋 Unscheduled ({unscheduledSermons.length})
+                </button>
+              </div>
+            )}
 
             {/* Calendar Grid with optional sidebar */}
             <div className={`flex ${showUnscheduled ? 'flex-col lg:flex-row' : ''}`}>
@@ -1533,9 +1549,19 @@ export default function App() {
             </div>
 
             {/* Legend */}
-            <div className="p-3 sm:p-4 border-t border-sage/10 bg-sage-50/30 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs sm:text-sm gap-3 sm:gap-4">
-              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+            <div className="p-3 sm:p-4 border-t border-sage/10 bg-sage-50/30 text-xs sm:text-sm">
+              {/* Header row: Legend label + Move Sermons button */}
+              <div className="flex items-center justify-between mb-2">
                 <span className="font-medium uppercase tracking-wider text-[10px] text-ink/50">Legend</span>
+                <button
+                  onClick={() => setShowShiftModal(true)}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 hover:bg-white text-ink/70 hover:text-ink rounded-full text-xs sm:text-sm font-medium transition-all shadow-sm"
+                >
+                  Move Sermons
+                </button>
+              </div>
+              {/* Color indicators row */}
+              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded bg-sage-100 border border-sage-400" />
                   <span className="text-ink/70">Sermon</span>
@@ -1561,12 +1587,6 @@ export default function App() {
                   <span className="text-ink/70">Video</span>
                 </div>
               </div>
-              <button
-                onClick={() => setShowShiftModal(true)}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 hover:bg-white text-ink/70 hover:text-ink rounded-full text-xs sm:text-sm font-medium transition-all shadow-sm"
-              >
-                Move Sermons
-              </button>
             </div>
           </div>
         )}
