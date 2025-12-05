@@ -73,7 +73,11 @@ export function isDevotionCompleted(lesson) {
 export function getDevotionDisplayTitle(lesson) {
   const parts = [];
   if (lesson.week_lesson) parts.push(lesson.week_lesson);
-  if (lesson.day) parts.push(`Day ${lesson.day}`);
+  if (lesson.day) {
+    // Handle both numeric day (3) and string day ("Day 3")
+    const dayStr = String(lesson.day);
+    parts.push(dayStr.toLowerCase().startsWith('day') ? dayStr : `Day ${dayStr}`);
+  }
   if (lesson.title && !lesson.week_lesson) parts.push(lesson.title);
   return parts.join(' - ') || lesson.title || 'Untitled Lesson';
 }

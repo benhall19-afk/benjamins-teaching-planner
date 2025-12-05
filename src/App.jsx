@@ -585,6 +585,7 @@ export default function App() {
   const [hidePrepared, setHidePrepared] = useState(false);
   const [filterBenjamin, setFilterBenjamin] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
+  const [selectedSermon, setSelectedSermon] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addDate, setAddDate] = useState(null);
   const [showShiftModal, setShowShiftModal] = useState(false);
@@ -1498,7 +1499,7 @@ export default function App() {
                     if (event.source === 'devotion') {
                       setSelectedDevotionLesson(event);
                     } else {
-                      setEditingEntry({ ...event });
+                      setSelectedSermon({ ...event });
                     }
                   }}
                   onEventDragStart={setDraggedEvent}
@@ -1703,7 +1704,7 @@ export default function App() {
                                       draggable
                                       onDragStart={() => setDraggedEvent({ ...event, source: isDevotionItem ? 'devotion' : 'sermon' })}
                                       onDragEnd={() => setDraggedEvent(null)}
-                                      onClick={() => isDevotionItem ? setSelectedDevotionLesson(event) : setEditingEntry({ ...event })}
+                                      onClick={() => isDevotionItem ? setSelectedDevotionLesson(event) : setSelectedSermon({ ...event })}
                                       className={`entry-card relative w-full text-left px-1 sm:px-1.5 py-0.5 sm:py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing ${colorClass} ${draggedEvent?.id === event.id ? 'opacity-50' : ''} ${shouldDim ? 'opacity-40' : ''}`}
                                     >
                                       {isPrepared && <span className="star-indicator" />}
@@ -1739,7 +1740,7 @@ export default function App() {
                             draggable
                             onDragStart={() => setDraggedEvent(sermon)}
                             onDragEnd={() => setDraggedEvent(null)}
-                            onClick={() => setEditingEntry({ ...sermon })}
+                            onClick={() => setSelectedSermon({ ...sermon })}
                             className="px-2 py-1.5 bg-white border border-sage/30 rounded text-xs cursor-grab active:cursor-grabbing hover:bg-sage/10 transition-colors truncate"
                           >
                             {sermon.sermon_name || sermon.properties?.sermon_name || 'Untitled'}
@@ -1759,7 +1760,7 @@ export default function App() {
                             draggable
                             onDragStart={() => setDraggedEvent(sermon)}
                             onDragEnd={() => setDraggedEvent(null)}
-                            onClick={() => setEditingEntry({ ...sermon })}
+                            onClick={() => setSelectedSermon({ ...sermon })}
                             className="px-2 py-1.5 bg-white/50 border border-gray-200 rounded text-xs cursor-grab active:cursor-grabbing hover:bg-gray-50 transition-colors truncate text-ink/60"
                           >
                             {sermon.sermon_name || sermon.properties?.sermon_name || 'Untitled'}
@@ -2254,6 +2255,28 @@ export default function App() {
         }}
       />
 
+      {/* Sermon Detail Popup */}
+      <ItemDetailPopup
+        item={selectedSermon}
+        source="sermon"
+        isOpen={!!selectedSermon}
+        onClose={() => setSelectedSermon(null)}
+        onUpdate={(updatedItem) => {
+          // Update the sermon in the local state
+          setSchedule(prev =>
+            prev.map(sermon =>
+              sermon.id === updatedItem.id ? updatedItem : sermon
+            )
+          );
+          showToast('Sermon updated', 'success');
+        }}
+        onEdit={(item) => {
+          // Close detail popup and open edit form
+          setSelectedSermon(null);
+          setEditingEntry({ ...item });
+        }}
+      />
+
       {/* Plan Month Modal for Devotions */}
       <PlanMonthModal
         isOpen={showPlanMonthModal}
@@ -2268,7 +2291,7 @@ export default function App() {
       />
 
       {/* Mobile Bottom Navigation - Only visible on mobile, hidden when modal is open */}
-      {!editingEntry && !showAddModal && !showShiftModal && !selectedDevotionLesson && !showPlanMonthModal && (
+      {!editingEntry && !showAddModal && !showShiftModal && !selectedDevotionLesson && !selectedSermon && !showPlanMonthModal && (
       <nav className="mobile-bottom-nav md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
         <div className="flex items-center gap-1 bg-slate-900/95 backdrop-blur-lg rounded-full px-2 py-2 shadow-2xl">
           <button
@@ -2355,17 +2378,6 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
       </div>
 
       <div>
-        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Notes</label>
-        <textarea
-          value={getValue('notes')}
-          onChange={(e) => updateField('notes', e.target.value)}
-          rows={2}
-          className="w-full input-glass text-sm sm:text-base resize-y"
-          placeholder="Quick notes about this entry..."
-        />
-      </div>
-
-      <div>
         <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Series</label>
         <SelectWithAdd
           value={getValue('series')}
@@ -2443,6 +2455,17 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
         </select>
       </div>
 
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Notes</label>
+        <textarea
+          value={getValue('notes')}
+          onChange={(e) => updateField('notes', e.target.value)}
+          rows={2}
+          className="w-full input-glass text-sm sm:text-base resize-y"
+          placeholder="Quick notes about this entry..."
+        />
+      </div>
+
       {/* Open in Craft Link */}
       {craftDeepLink && (
         <a
@@ -2507,17 +2530,6 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
           onChange={(e) => setEntry(prev => ({ ...prev, sermon_name: e.target.value }))}
           className="w-full input-glass text-sm sm:text-base"
           placeholder="Sermon name..."
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Notes</label>
-        <textarea
-          value={entry.notes}
-          onChange={(e) => setEntry(prev => ({ ...prev, notes: e.target.value }))}
-          rows={2}
-          className="w-full input-glass text-sm sm:text-base resize-y"
-          placeholder="Quick notes about this entry..."
         />
       </div>
 
@@ -2594,6 +2606,17 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
           <option value="Ready to Preach">Ready to Preach</option>
           <option value="archive">Archive</option>
         </select>
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Notes</label>
+        <textarea
+          value={entry.notes}
+          onChange={(e) => setEntry(prev => ({ ...prev, notes: e.target.value }))}
+          rows={2}
+          className="w-full input-glass text-sm sm:text-base resize-y"
+          placeholder="Quick notes about this entry..."
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3">

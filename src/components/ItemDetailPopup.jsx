@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import * as api from '../api';
 import { isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle } from '../viewConfig';
 import LoadingIndicator from './LoadingIndicator';
@@ -26,6 +24,10 @@ export default function ItemDetailPopup({
     : false;
   const [localPrepared, setLocalPrepared] = useState(initialPrepared);
 
+  // Local optimistic state for sermon status
+  const [localStatus, setLocalStatus] = useState(item?.status || 'Draft');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
   // Reset local state when item changes
   useEffect(() => {
     if (item) {
@@ -33,8 +35,21 @@ export default function ItemDetailPopup({
         ? isSermonPrepared(item)
         : isDevotionPrepared(item);
       setLocalPrepared(prepared);
+      if (source === 'sermon') {
+        setLocalStatus(item.status || 'Draft');
+      }
     }
   }, [item, source]);
+
+  // Lock body scroll when popup is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [isOpen]);
 
   if (!isOpen || !item) return null;
 
@@ -94,6 +109,29 @@ export default function ItemDetailPopup({
     setTogglingPrepared(false);
   };
 
+  const handleStatusChange = async (newStatus) => {
+    if (source !== 'sermon') return;
+
+    const oldStatus = localStatus;
+
+    // Optimistic update
+    setLocalStatus(newStatus);
+    setUpdatingStatus(true);
+    setError(null);
+
+    try {
+      await api.updateScheduleEntry(item.id, { status: newStatus });
+      onUpdate?.({ ...item, status: newStatus }, source);
+    } catch (err) {
+      // Revert on error
+      setLocalStatus(oldStatus);
+      console.error('Failed to update status:', err);
+      setError(err.message || 'Failed to update status. Please try again.');
+    }
+
+    setUpdatingStatus(false);
+  };
+
   const colorClass = source === 'sermon' ? 'sage' : 'amber';
 
   // Generate Craft deeplink URL (only for items with valid UUID format)
@@ -103,22 +141,6 @@ export default function ItemDetailPopup({
     ? `craftdocs://open?blockId=${item.id}&spaceId=${spaceId}`
     : null;
 
-  // Extract content from item - handle both array of blocks and string formats
-  const getContentMarkdown = () => {
-    if (!item.content) return '';
-    if (typeof item.content === 'string') return item.content;
-    if (Array.isArray(item.content)) {
-      return item.content
-        .filter(block => block.markdown)
-        .map(block => block.markdown)
-        .join('\n\n');
-    }
-    return '';
-  };
-
-  const contentMarkdown = getContentMarkdown();
-  const hasContent = contentMarkdown.trim().length > 0;
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -127,15 +149,17 @@ export default function ItemDetailPopup({
         onClick={onClose}
       />
 
-      {/* Popup - wider when content exists (desktop only) */}
-      <div className={`modal-glass relative w-full max-w-md md:${hasContent ? 'max-w-4xl' : 'max-w-md'} p-4 sm:p-6 max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col`}>
+      {/* Popup */}
+      <div className="modal-glass relative w-full max-w-md p-4 sm:p-6 max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1 pr-4">
             <div className={`text-xs font-medium text-${colorClass}-600 uppercase tracking-wider mb-1`}>
-              {source === 'sermon' ? 'Sermon' : 'Devotion'}
+              {source === 'sermon' ? 'Sermon' : (item.category || 'Devotion')}
             </div>
-            <h2 className="text-xl font-semibold text-ink">{displayTitle}</h2>
+            {source === 'sermon' && (
+              <h2 className="text-xl font-semibold text-ink">{displayTitle}</h2>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -147,15 +171,20 @@ export default function ItemDetailPopup({
           </button>
         </div>
 
-        {/* Two-column layout when content exists (desktop only) */}
-        <div className={`flex-1 overflow-hidden ${hasContent ? 'md:flex md:gap-6' : ''}`}>
-          {/* Left column - Details (full width on mobile) */}
-          <div className={`${hasContent ? 'w-full md:w-1/3 md:flex-shrink-0 overflow-y-auto md:pr-2' : 'w-full'}`}>
+        {/* Details */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="w-full">
             <div className="space-y-4">
               {/* Details */}
               <div className="bg-white/50 rounded-xl p-4 space-y-2">
                 {source === 'sermon' && (
                   <>
+                    {item.series && (
+                      <div>
+                        <span className="text-xs text-ink/50">Series:</span>
+                        <div className="text-sm font-medium text-ink">{item.series}</div>
+                      </div>
+                    )}
                     {item.primary_text && (
                       <div>
                         <span className="text-xs text-ink/50">Primary Text:</span>
@@ -181,10 +210,10 @@ export default function ItemDetailPopup({
                         </div>
                       </div>
                     )}
-                    {item.status && (
+                    {item.notes && (
                       <div>
-                        <span className="text-xs text-ink/50">Status:</span>
-                        <div className="text-sm font-medium text-ink">{item.status}</div>
+                        <span className="text-xs text-ink/50">Notes:</span>
+                        <div className="text-sm text-ink">{item.notes}</div>
                       </div>
                     )}
                   </>
@@ -192,35 +221,16 @@ export default function ItemDetailPopup({
 
                 {source === 'devotion' && (
                   <>
-                    {item.week_lesson && (
-                      <div>
-                        <span className="text-xs text-ink/50">Week Lesson:</span>
-                        <div className="text-sm font-medium text-ink">{item.week_lesson}</div>
-                      </div>
-                    )}
-                    {item.day && (
-                      <div>
-                        <span className="text-xs text-ink/50">Day:</span>
-                        <div className="text-sm font-medium text-ink">Day {item.day}</div>
-                      </div>
-                    )}
                     {item.title && (
                       <div>
                         <span className="text-xs text-ink/50">Title:</span>
                         <div className="text-sm font-medium text-ink">{item.title}</div>
                       </div>
                     )}
-                    {item.scheduled_date && (
+                    {item.week_lesson && (
                       <div>
-                        <span className="text-xs text-ink/50">Scheduled:</span>
-                        <div className="text-sm font-medium text-ink">
-                          {new Date(item.scheduled_date).toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </div>
+                        <span className="text-xs text-ink/50">Week Lesson:</span>
+                        <div className="text-sm font-medium text-ink">{item.week_lesson}</div>
                       </div>
                     )}
                     {item.last_taught && (
@@ -261,25 +271,46 @@ export default function ItemDetailPopup({
                 </div>
               )}
 
-              {/* Mark Complete Section */}
-              <div className="bg-white/50 rounded-xl p-4">
-                <div className="text-sm font-medium text-ink mb-2">Mark as Complete</div>
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={completionDate}
-                    onChange={(e) => setCompletionDate(e.target.value)}
-                    className="flex-1 input-glass text-sm"
-                  />
-                  <button
-                    onClick={handleMarkComplete}
-                    disabled={markingComplete}
-                    className="px-4 py-2 btn-themed text-sm disabled:opacity-50"
+              {/* Status Section (Sermons) */}
+              {source === 'sermon' && (
+                <div className="bg-white/50 rounded-xl p-4">
+                  <div className="text-sm font-medium text-ink mb-2">Status</div>
+                  <select
+                    value={localStatus}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    disabled={updatingStatus}
+                    className={`w-full input-glass text-sm ${updatingStatus ? 'opacity-50' : ''}`}
                   >
-                    {markingComplete ? 'Saving...' : 'Complete'}
-                  </button>
+                    <option value="Draft">Draft</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Ready to Preach">Ready to Preach</option>
+                    <option value="Complete">Complete</option>
+                    <option value="Archive">Archive</option>
+                  </select>
                 </div>
-              </div>
+              )}
+
+              {/* Mark Complete Section (Devotions only) */}
+              {source === 'devotion' && (
+                <div className="bg-white/50 rounded-xl p-4">
+                  <div className="text-sm font-medium text-ink mb-2">Mark as Complete</div>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={completionDate}
+                      onChange={(e) => setCompletionDate(e.target.value)}
+                      className="flex-1 input-glass text-sm"
+                    />
+                    <button
+                      onClick={handleMarkComplete}
+                      disabled={markingComplete}
+                      className="px-4 py-2 btn-themed text-sm disabled:opacity-50"
+                    >
+                      {markingComplete ? 'Saving...' : 'Complete'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Error Message */}
               {error && (
@@ -321,28 +352,14 @@ export default function ItemDetailPopup({
               </div>
             </div>
           </div>
-
-          {/* Right column - Content (hidden on mobile) */}
-          {hasContent && (
-            <div className="hidden md:block md:w-2/3 flex-shrink-0 overflow-y-auto bg-white/50 rounded-xl p-5">
-              <div className="text-xs font-medium text-ink/50 uppercase tracking-wider mb-3">
-                Lesson Content
-              </div>
-              <div className="lesson-content text-sm text-ink/80 space-y-3 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:text-ink [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-ink [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-ink [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_blockquote]:border-l-4 [&_blockquote]:border-amber-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-ink/70 [&_strong]:font-semibold [&_strong]:text-ink [&_a]:text-amber-600 [&_a]:underline">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {contentMarkdown}
-                </ReactMarkdown>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Loading Indicator */}
       <LoadingIndicator
-        isLoading={togglingPrepared || markingComplete}
+        isLoading={togglingPrepared || markingComplete || updatingStatus}
         colorClass={colorClass}
-        message={markingComplete ? 'Marking complete...' : 'Updating...'}
+        message={markingComplete ? 'Marking complete...' : updatingStatus ? 'Updating status...' : 'Updating...'}
       />
     </div>
   );
