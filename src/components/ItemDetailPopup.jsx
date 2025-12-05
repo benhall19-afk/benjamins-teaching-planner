@@ -127,8 +127,8 @@ export default function ItemDetailPopup({
         onClick={onClose}
       />
 
-      {/* Popup - wider when content exists */}
-      <div className={`modal-glass relative w-full ${hasContent ? 'max-w-4xl' : 'max-w-md'} p-6 max-h-[90vh] overflow-hidden flex flex-col`}>
+      {/* Popup - wider when content exists (desktop only) */}
+      <div className={`modal-glass relative w-full max-w-md md:${hasContent ? 'max-w-4xl' : 'max-w-md'} p-4 sm:p-6 max-h-[85vh] sm:max-h-[90vh] overflow-hidden flex flex-col`}>
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1 pr-4">
@@ -147,10 +147,10 @@ export default function ItemDetailPopup({
           </button>
         </div>
 
-        {/* Two-column layout when content exists */}
-        <div className={`flex-1 overflow-hidden ${hasContent ? 'flex gap-6' : ''}`}>
-          {/* Left column - Details */}
-          <div className={`${hasContent ? 'w-1/3 flex-shrink-0 overflow-y-auto pr-2' : 'w-full'}`}>
+        {/* Two-column layout when content exists (desktop only) */}
+        <div className={`flex-1 overflow-hidden ${hasContent ? 'md:flex md:gap-6' : ''}`}>
+          {/* Left column - Details (full width on mobile) */}
+          <div className={`${hasContent ? 'w-full md:w-1/3 md:flex-shrink-0 overflow-y-auto md:pr-2' : 'w-full'}`}>
             <div className="space-y-4">
               {/* Details */}
               <div className="bg-white/50 rounded-xl p-4 space-y-2">
@@ -322,9 +322,9 @@ export default function ItemDetailPopup({
             </div>
           </div>
 
-          {/* Right column - Content */}
+          {/* Right column - Content (hidden on mobile) */}
           {hasContent && (
-            <div className="w-2/3 flex-shrink-0 overflow-y-auto bg-white/50 rounded-xl p-5">
+            <div className="hidden md:block md:w-2/3 flex-shrink-0 overflow-y-auto bg-white/50 rounded-xl p-5">
               <div className="text-xs font-medium text-ink/50 uppercase tracking-wider mb-3">
                 Lesson Content
               </div>
