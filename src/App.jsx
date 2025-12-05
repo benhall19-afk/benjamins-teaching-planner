@@ -582,6 +582,7 @@ export default function App() {
   const [englishClasses, setEnglishClasses] = useState([]);
   const [englishLoading, setEnglishLoading] = useState(false);
   const [selectedEnglishClass, setSelectedEnglishClass] = useState(null);
+  const [editingEnglishClass, setEditingEnglishClass] = useState(null);
 
   // Unscheduled sermons sidebar
   const [showUnscheduled, setShowUnscheduled] = useState(false);
@@ -1103,6 +1104,26 @@ export default function App() {
       showToast('Entry deleted!', 'success');
     } catch (err) {
       showToast('Failed to delete: ' + err.message, 'error');
+    }
+    setIsSaving(false);
+  };
+
+  const handleSaveEnglishClass = async (englishClass) => {
+    setIsSaving(true);
+    try {
+      await api.updateEnglishClass(englishClass.id, {
+        title: englishClass.title,
+        class_date: englishClass.class_date,
+        class_status: englishClass.class_status,
+        notes: englishClass.notes
+      });
+
+      // Update local state
+      setEnglishClasses(prev => prev.map(c => c.id === englishClass.id ? englishClass : c));
+      setEditingEnglishClass(null);
+      showToast('English class saved!', 'success');
+    } catch (err) {
+      showToast('Failed to save: ' + err.message, 'error');
     }
     setIsSaving(false);
   };
@@ -2411,6 +2432,72 @@ export default function App() {
         </Modal>
       )}
 
+      {/* Edit English Class Modal */}
+      {editingEnglishClass && (
+        <Modal onClose={() => setEditingEnglishClass(null)}>
+          <h3 className="font-medium uppercase tracking-wider text-xs text-purple-600 mb-4">Edit English Class</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-ink/70 mb-1">Title</label>
+              <input
+                type="text"
+                value={editingEnglishClass.title || ''}
+                onChange={(e) => setEditingEnglishClass({...editingEnglishClass, title: e.target.value})}
+                className="w-full input-glass"
+                placeholder="Class title"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ink/70 mb-1">Class Date</label>
+              <input
+                type="date"
+                value={editingEnglishClass.class_date || ''}
+                onChange={(e) => setEditingEnglishClass({...editingEnglishClass, class_date: e.target.value})}
+                className="w-full input-glass"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ink/70 mb-1">Status</label>
+              <select
+                value={editingEnglishClass.class_status || 'Preparing'}
+                onChange={(e) => setEditingEnglishClass({...editingEnglishClass, class_status: e.target.value})}
+                className="w-full input-glass"
+              >
+                <option value="Preparing">Preparing</option>
+                <option value="Prepared">Prepared</option>
+                <option value="Complete">Complete</option>
+                <option value="Cancelled Class">Cancelled Class</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ink/70 mb-1">Notes</label>
+              <textarea
+                value={editingEnglishClass.notes || ''}
+                onChange={(e) => setEditingEnglishClass({...editingEnglishClass, notes: e.target.value})}
+                className="w-full input-glass"
+                rows={3}
+                placeholder="Class notes..."
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setEditingEnglishClass(null)}
+                className="flex-1 px-4 py-2.5 btn-glass text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSaveEnglishClass(editingEnglishClass)}
+                disabled={isSaving}
+                className="flex-1 px-4 py-2.5 bg-purple-500 text-white rounded-full text-sm font-medium hover:bg-purple-600 transition-colors disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* Add Entry Modal */}
       {showAddModal && (
         <Modal onClose={() => setShowAddModal(false)}>
@@ -2487,8 +2574,9 @@ export default function App() {
           showToast('English class updated', 'success');
         }}
         onEdit={(item) => {
-          // For now, just show a toast - full edit modal can be added later
-          showToast('Edit functionality coming soon', 'info');
+          // Close detail popup and open edit modal
+          setSelectedEnglishClass(null);
+          setEditingEnglishClass({ ...item });
         }}
       />
 
