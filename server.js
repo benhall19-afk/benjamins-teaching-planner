@@ -11,8 +11,8 @@ import { config } from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Load environment variables
-config();
+// Load environment variables (override any existing shell env vars)
+config({ override: true });
 
 // ES Module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
