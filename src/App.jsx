@@ -583,6 +583,8 @@ export default function App() {
   const [englishLoading, setEnglishLoading] = useState(false);
   const [selectedEnglishClass, setSelectedEnglishClass] = useState(null);
   const [editingEnglishClass, setEditingEnglishClass] = useState(null);
+  const [showAddEnglishModal, setShowAddEnglishModal] = useState(false);
+  const [addEnglishDate, setAddEnglishDate] = useState(null);
 
   // Unscheduled sermons sidebar
   const [showUnscheduled, setShowUnscheduled] = useState(false);
@@ -1124,6 +1126,32 @@ export default function App() {
       showToast('English class saved!', 'success');
     } catch (err) {
       showToast('Failed to save: ' + err.message, 'error');
+    }
+    setIsSaving(false);
+  };
+
+  const handleAddEnglishClass = async (newClass) => {
+    setIsSaving(true);
+    try {
+      const result = await api.addEnglishClass(
+        newClass.title,
+        newClass.class_date,
+        activeEnglishSeries?.id || null,
+        newClass.notes
+      );
+
+      // Add to local state
+      const addedClass = {
+        ...newClass,
+        id: result.result?.id || `temp_${Date.now()}`,
+        class_status: 'Preparing',
+        series_title: activeEnglishSeries?.title
+      };
+      setEnglishClasses(prev => [...prev, addedClass]);
+      setShowAddEnglishModal(false);
+      showToast('English class added!', 'success');
+    } catch (err) {
+      showToast('Failed to add class: ' + err.message, 'error');
     }
     setIsSaving(false);
   };
@@ -1849,8 +1877,17 @@ export default function App() {
                                   )}
                                 </span>
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); setAddDate(dateStr); setShowAddModal(true); }}
-                                  className="w-5 h-5 hidden sm:flex items-center justify-center text-sage-600 hover:bg-sage/20 rounded-full transition-all text-sm opacity-0 group-hover:opacity-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (currentView === 'english') {
+                                      setAddEnglishDate(dateStr);
+                                      setShowAddEnglishModal(true);
+                                    } else {
+                                      setAddDate(dateStr);
+                                      setShowAddModal(true);
+                                    }
+                                  }}
+                                  className={`w-5 h-5 hidden sm:flex items-center justify-center ${currentView === 'english' ? 'text-purple-600 hover:bg-purple/20' : 'text-sage-600 hover:bg-sage/20'} rounded-full transition-all text-sm opacity-0 group-hover:opacity-100`}
                                 >
                                   +
                                 </button>
@@ -2498,6 +2535,20 @@ export default function App() {
         </Modal>
       )}
 
+      {/* Add English Class Modal */}
+      {showAddEnglishModal && (
+        <Modal onClose={() => setShowAddEnglishModal(false)}>
+          <h3 className="font-medium uppercase tracking-wider text-xs text-purple-600 mb-4">Add English Class</h3>
+          <AddEnglishClassForm
+            initialDate={addEnglishDate}
+            onSave={handleAddEnglishClass}
+            onCancel={() => setShowAddEnglishModal(false)}
+            isSaving={isSaving}
+            activeSeries={activeEnglishSeries}
+          />
+        </Modal>
+      )}
+
       {/* Add Entry Modal */}
       {showAddModal && (
         <Modal onClose={() => setShowAddModal(false)}>
@@ -2845,6 +2896,73 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
           🗑 Delete Entry
         </button>
       )}
+    </div>
+  );
+}
+
+function AddEnglishClassForm({ initialDate, onSave, onCancel, isSaving, activeSeries }) {
+  const [entry, setEntry] = useState({
+    title: '',
+    class_date: initialDate || '',
+    notes: ''
+  });
+
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Class Title</label>
+        <input
+          type="text"
+          value={entry.title}
+          onChange={(e) => setEntry(prev => ({ ...prev, title: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+          placeholder="Class title..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Class Date</label>
+        <input
+          type="date"
+          value={entry.class_date}
+          onChange={(e) => setEntry(prev => ({ ...prev, class_date: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+        />
+      </div>
+
+      {activeSeries && (
+        <div className="bg-purple-50 rounded-xl p-3">
+          <div className="text-xs text-purple-600 mb-1">Active Series</div>
+          <div className="text-sm font-medium text-ink">{activeSeries.title}</div>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Notes (optional)</label>
+        <textarea
+          value={entry.notes}
+          onChange={(e) => setEntry(prev => ({ ...prev, notes: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+          rows={3}
+          placeholder="Class notes..."
+        />
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 px-4 py-2.5 btn-glass text-sm"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onSave(entry)}
+          disabled={isSaving || !entry.title || !entry.class_date}
+          className="flex-1 px-4 py-2.5 bg-purple-500 text-white rounded-full text-sm font-medium hover:bg-purple-600 transition-colors disabled:opacity-50"
+        >
+          {isSaving ? 'Adding...' : 'Add Class'}
+        </button>
+      </div>
     </div>
   );
 }
