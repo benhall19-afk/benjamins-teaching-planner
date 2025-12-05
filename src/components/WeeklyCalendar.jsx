@@ -253,7 +253,7 @@ export default function WeeklyCalendar({
                       {/* Subtitle */}
                       <div className="text-[10px] text-ink/50 mt-1 truncate">
                         {event.source === 'sermon' && (event.preacher || event.primary_text || '')}
-                        {event.source === 'devotion' && (event.day ? `Day ${event.day}` : '')}
+                        {event.source === 'devotion' && (event.day ? (String(event.day).toLowerCase().startsWith('day') ? event.day : `Day ${event.day}`) : '')}
                         {event.source === 'english' && (event.series_title || '')}
                       </div>
                     </div>
