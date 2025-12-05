@@ -1839,25 +1839,42 @@ export default function App() {
                                 {events.map(event => {
                                   // Determine display based on source
                                   const isDevotionItem = event.source === 'devotion';
+                                  const isEnglishItem = event.source === 'english';
                                   const lessonType = event.lesson_type || event.properties?.lesson_type;
                                   const name = isDevotionItem
                                     ? getDevotionDisplayTitle(event)
+                                    : isEnglishItem
+                                    ? getEnglishClassDisplayTitle(event)
                                     : (event.sermon_name || event.properties?.sermon_name || event.title || lessonType || '—');
                                   const isPrepared = isDevotionItem
                                     ? isDevotionPrepared(event)
+                                    : isEnglishItem
+                                    ? isEnglishClassPrepared(event)
                                     : isPreparedSermon(event);
                                   const shouldDim = hidePrepared && isPrepared;
                                   const colorClass = isDevotionItem
                                     ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                                    : isEnglishItem
+                                    ? 'bg-purple-50 border-purple-300 text-purple-700 hover:bg-purple-100'
                                     : getLessonTypeColor(lessonType);
+
+                                  const handleClick = () => {
+                                    if (isDevotionItem) {
+                                      setSelectedDevotionLesson(event);
+                                    } else if (isEnglishItem) {
+                                      setSelectedEnglishClass(event);
+                                    } else {
+                                      setSelectedSermon({ ...event });
+                                    }
+                                  };
 
                                   return (
                                     <button
                                       key={event.id}
                                       draggable
-                                      onDragStart={() => setDraggedEvent({ ...event, source: isDevotionItem ? 'devotion' : 'sermon' })}
+                                      onDragStart={() => setDraggedEvent({ ...event, source: event.source })}
                                       onDragEnd={() => setDraggedEvent(null)}
-                                      onClick={() => isDevotionItem ? setSelectedDevotionLesson(event) : setSelectedSermon({ ...event })}
+                                      onClick={handleClick}
                                       className={`entry-card relative w-full text-left px-1 sm:px-1.5 py-0.5 sm:py-1 rounded border text-xs truncate cursor-grab active:cursor-grabbing ${colorClass} ${draggedEvent?.id === event.id ? 'opacity-50' : ''} ${shouldDim ? 'opacity-40' : ''}`}
                                     >
                                       {isPrepared && <span className="star-indicator" />}
