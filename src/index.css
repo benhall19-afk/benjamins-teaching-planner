@@ -77,6 +77,12 @@
 /* ============================================
    BASE STYLES
    ============================================ */
+
+/* Safe area support for iOS notch/status bar */
+html {
+  background: var(--theme-400);
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
   font-weight: 400;
@@ -91,10 +97,15 @@ body {
     var(--theme-50) 100%
   );
   min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   transition: background 0.5s ease-out;
+  /* Safe area padding for iOS */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* View transition overlay - applied during theme changes */

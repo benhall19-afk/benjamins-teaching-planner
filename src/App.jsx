@@ -2267,7 +2267,8 @@ export default function App() {
         }}
       />
 
-      {/* Mobile Bottom Navigation - Only visible on mobile */}
+      {/* Mobile Bottom Navigation - Only visible on mobile, hidden when modal is open */}
+      {!editingEntry && !showAddModal && !showShiftModal && !selectedDevotionLesson && !showPlanMonthModal && (
       <nav className="mobile-bottom-nav md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
         <div className="flex items-center gap-1 bg-slate-900/95 backdrop-blur-lg rounded-full px-2 py-2 shadow-2xl">
           <button
@@ -2299,6 +2300,7 @@ export default function App() {
           </button>
         </div>
       </nav>
+      )}
 
       {/* Toast */}
       {toast && (
@@ -2319,10 +2321,10 @@ export default function App() {
 function Modal({ children, onClose }) {
   return (
     <div
-      className="modal-backdrop fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-2 sm:p-4"
+      className="modal-backdrop fixed inset-0 bg-black/30 flex items-center justify-center z-[60] px-3 py-4 sm:p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal-glass p-4 sm:p-6 max-w-[calc(100vw-1rem)] sm:max-w-md w-full max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
+      <div className="modal-glass p-4 sm:p-6 w-full max-w-[min(calc(100vw-1.5rem),28rem)] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto overflow-x-hidden box-border">
         {children}
       </div>
     </div>
