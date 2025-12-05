@@ -56,7 +56,7 @@ export default function ItemDetailPopup({
   const isPrepared = localPrepared;
 
   const displayTitle = source === 'sermon'
-    ? (item.title || 'Untitled')
+    ? (item.sermon_name || item.title || 'Untitled')
     : getDevotionDisplayTitle(item);
 
   const handleMarkComplete = async () => {
