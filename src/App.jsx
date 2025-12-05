@@ -1598,13 +1598,26 @@ export default function App() {
                 </button>
                 {showTimeline && (
                   <button
-                    onClick={() => setShowAddModal(true)}
+                    onClick={() => {
+                      if (currentView === 'english') {
+                        setAddEnglishDate(null);
+                        setShowAddEnglishModal(true);
+                      } else if (currentView === 'devotions') {
+                        setAddDevotionDate(null);
+                        setShowAddDevotionModal(true);
+                      } else {
+                        setAddDate(null);
+                        setShowAddModal(true);
+                      }
+                    }}
                     className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors text-sm ${
-                      currentView === 'devotions'
+                      currentView === 'english'
+                        ? 'bg-purple/10 hover:bg-purple/20 text-purple-600'
+                        : currentView === 'devotions'
                         ? 'bg-amber/10 hover:bg-amber/20 text-amber-600'
                         : 'bg-sage/10 hover:bg-sage/20 text-sage-600'
                     }`}
-                    title="Add series to timeline"
+                    title={currentView === 'english' ? 'Add English class' : currentView === 'devotions' ? 'Add devotion lesson' : 'Add sermon'}
                   >
                     +
                   </button>
