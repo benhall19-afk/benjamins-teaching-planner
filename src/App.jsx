@@ -1881,8 +1881,16 @@ export default function App() {
                               onDrop={() => handleDrop(dateStr)}
                               onClick={(e) => {
                                 if (e.target === e.currentTarget || e.target.closest('.day-header')) {
-                                  setAddDate(dateStr);
-                                  setShowAddModal(true);
+                                  if (currentView === 'english') {
+                                    setAddEnglishDate(dateStr);
+                                    setShowAddEnglishModal(true);
+                                  } else if (currentView === 'devotions') {
+                                    setAddDevotionDate(dateStr);
+                                    setShowAddDevotionModal(true);
+                                  } else {
+                                    setAddDate(dateStr);
+                                    setShowAddModal(true);
+                                  }
                                 }
                               }}
                               className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer border-sage/20 hover:border-sage/50 ${isCurrentWeek ? 'bg-sage-100/70' : 'bg-white/50'} ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''} ${hasDayHoliday ? `calendar-day-holiday calendar-day-holiday--${primaryDayHoliday.color}` : ''}`}
