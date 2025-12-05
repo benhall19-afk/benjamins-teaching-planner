@@ -857,7 +857,7 @@ h1, h2, h3, h4, h5, h6 {
   top: 0;
   right: 0;
   bottom: 0;
-  left: 36px;
+  left: 28px;
   border-radius: 0.75rem;
   pointer-events: none;
   z-index: 0;
@@ -1165,7 +1165,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .week-row-holiday::before {
-    left: 44px;
+    left: 36px;
   }
 
   .day-holiday-label {
