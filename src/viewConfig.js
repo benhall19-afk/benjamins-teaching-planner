@@ -93,13 +93,14 @@ export function getDevotionDisplayTitle(lesson) {
 }
 
 /**
- * Check if an English class is prepared
+ * Check if an English class is prepared (shows star indicator)
+ * Shows star for: Prepared, Complete, or Cancelled Class
  * @param {Object} englishClass - English class object
  * @returns {boolean}
  */
 export function isEnglishClassPrepared(englishClass) {
   const status = englishClass?.class_status?.toLowerCase() || '';
-  return status === 'prepared';
+  return status === 'prepared' || status === 'complete' || status === 'cancelled class';
 }
 
 /**
