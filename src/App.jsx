@@ -12,6 +12,10 @@ import ViewSwitcher from './components/ViewSwitcher';
 import ItemDetailPopup from './components/ItemDetailPopup';
 import PlanMonthModal from './components/PlanMonthModal';
 import WeeklyCalendar from './components/WeeklyCalendar';
+import UpcomingHolidays from './components/UpcomingHolidays';
+import HolidayManagementModal from './components/HolidayManagementModal';
+import { useHolidays } from './hooks/useHolidays';
+import { getWeekKey } from './utils/holidayCalculations';
 
 // ============================================
 // TOAST NOTIFICATIONS
@@ -607,6 +611,22 @@ export default function App() {
     season: [],
     lessonType: []
   });
+
+  // Holiday system
+  const {
+    getHolidaysForDate,
+    getHolidaysForWeek,
+    getUpcoming,
+    getHolidayColor,
+    getHolidaysForYear,
+    allHolidayRules,
+    customHolidays,
+    addCustomHoliday,
+    deleteCustomHoliday,
+    isManagementOpen,
+    openManagement,
+    closeManagement,
+  } = useHolidays(currentDate);
 
   // ============================================
   // DATA LOADING
@@ -1506,6 +1526,7 @@ export default function App() {
                   onEventDragEnd={() => setDraggedEvent(null)}
                   onDayDrop={handleDrop}
                   draggedEvent={draggedEvent}
+                  getHolidaysForDate={getHolidaysForDate}
                 />
               </div>
             ) : (
@@ -1632,10 +1653,29 @@ export default function App() {
                     return formatDateString(year, month, day) === todayStr;
                   });
 
+                  // Check for holidays in this week
+                  const firstDayDate = firstDayInWeek ? new Date(year, month, firstDayInWeek) : null;
+                  const weekKey = firstDayDate ? getWeekKey(firstDayDate) : null;
+                  const weekHolidays = weekKey ? getHolidaysForWeek(weekKey) : [];
+                  const hasWeekHoliday = weekHolidays.length > 0;
+                  const primaryWeekHoliday = weekHolidays[0];
+
                   return (
-                    <div key={weekIndex} className="flex">
+                    <div key={weekIndex} className={`flex ${hasWeekHoliday ? `week-row-holiday week-row-holiday--${primaryWeekHoliday.color}` : ''}`}>
                       {/* Week Number Semi-Circle Indicator */}
                       <div className={`week-indicator ${isCurrentWeek ? 'current' : ''}`}>
+                        {hasWeekHoliday && (
+                          <span className="week-indicator-holiday" title={weekHolidays.map(h => h.name).join(', ')}>
+                            {weekHolidays.length > 1 ? (
+                              <span className="week-indicator-holiday-multi">
+                                {primaryWeekHoliday.emoji}
+                                <span className="week-indicator-holiday-count">+{weekHolidays.length - 1}</span>
+                              </span>
+                            ) : (
+                              primaryWeekHoliday.emoji
+                            )}
+                          </span>
+                        )}
                         <span>{weekNum}</span>
                       </div>
 
@@ -1653,6 +1693,11 @@ export default function App() {
                           const isSunday = dayIndex === 6; // Sunday is now at index 6 (Mon=0, Sun=6)
                           const isToday = todayStr === dateStr;
 
+                          // Check for holidays on this specific day
+                          const dayHolidays = getHolidaysForDate(dateStr);
+                          const hasDayHoliday = dayHolidays.length > 0;
+                          const primaryDayHoliday = dayHolidays[0];
+
                           return (
                             <div
                               key={day}
@@ -1664,15 +1709,25 @@ export default function App() {
                                   setShowAddModal(true);
                                 }
                               }}
-                              className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer border-sage/20 hover:border-sage/50 ${isCurrentWeek ? 'bg-sage-100/70' : 'bg-white/50'} ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''}`}
+                              className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer border-sage/20 hover:border-sage/50 ${isCurrentWeek ? 'bg-sage-100/70' : 'bg-white/50'} ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''} ${hasDayHoliday ? `calendar-day-holiday calendar-day-holiday--${primaryDayHoliday.color}` : ''}`}
                             >
                               <div className="day-header flex items-center justify-between mb-0.5 sm:mb-1">
-                                <span className={`text-xs sm:text-sm font-medium ${
-                                  isToday
-                                    ? 'text-white bg-sage-500 rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center'
-                                    : isSunday ? 'text-burgundy' : 'text-ink/60'
-                                }`}>
-                                  {day}
+                                <span className="flex items-center gap-0.5">
+                                  <span className={`text-xs sm:text-sm font-medium ${
+                                    isToday
+                                      ? 'text-white bg-sage-500 rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center'
+                                      : isSunday ? 'text-burgundy' : 'text-ink/60'
+                                  }`}>
+                                    {day}
+                                  </span>
+                                  {hasDayHoliday && (
+                                    <span
+                                      className="text-[0.6rem] sm:text-xs"
+                                      title={dayHolidays.map(h => h.name).join(', ')}
+                                    >
+                                      {primaryDayHoliday.emoji}
+                                    </span>
+                                  )}
                                 </span>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setAddDate(dateStr); setShowAddModal(true); }}
@@ -1775,6 +1830,21 @@ export default function App() {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Upcoming Holidays Info Box */}
+            <div className="px-2 sm:px-4">
+              <UpcomingHolidays getUpcoming={getUpcoming} weeksAhead={6} />
+              <button
+                onClick={openManagement}
+                className="mt-2 text-xs text-ink/40 hover:text-ink/70 transition-colors flex items-center gap-1"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Manage Holidays
+              </button>
             </div>
 
             {/* Footer - View-specific content */}
@@ -2288,6 +2358,17 @@ export default function App() {
           loadDevotions(true);
           showToast(`Scheduled ${result.scheduled || 'lessons'} for the next 30 days`, 'success');
         }}
+      />
+
+      {/* Holiday Management Modal */}
+      <HolidayManagementModal
+        isOpen={isManagementOpen}
+        onClose={closeManagement}
+        allHolidayRules={allHolidayRules}
+        customHolidays={customHolidays}
+        getHolidaysForYear={getHolidaysForYear}
+        onAddHoliday={addCustomHoliday}
+        onDeleteHoliday={deleteCustomHoliday}
       />
 
       {/* Mobile Bottom Navigation - Only visible on mobile, hidden when modal is open */}

@@ -46,7 +46,8 @@ export default function WeeklyCalendar({
   onEventDragStart,
   onEventDragEnd,
   onDayDrop,
-  draggedEvent
+  draggedEvent,
+  getHolidaysForDate
 }) {
   const weekDates = useMemo(() => getWeekDates(currentDate), [currentDate]);
 
@@ -142,6 +143,16 @@ export default function WeeklyCalendar({
             const isToday = dateKey === todayKey;
             const isPast = date < today && dateKey !== todayKey;
 
+            // Check for holidays on this day
+            const dayHolidays = getHolidaysForDate?.(dateKey) || [];
+            const hasDayHoliday = dayHolidays.length > 0;
+            const primaryDayHoliday = dayHolidays[0];
+
+            // Build class string for holiday styling
+            const holidayRingClass = hasDayHoliday
+              ? `ring-2 ring-[var(--holiday-${primaryDayHoliday.color})]`
+              : '';
+
             return (
               <div
                 key={dateKey}
@@ -149,7 +160,12 @@ export default function WeeklyCalendar({
                 onDrop={() => onDayDrop?.(dateKey)}
                 className={`flex-shrink-0 w-44 bg-white/60 rounded-xl p-3 ${
                   isToday ? 'ring-2 ring-slate-400 bg-white/80' : ''
-                } ${isPast ? 'opacity-50' : ''}`}
+                } ${isPast ? 'opacity-50' : ''} ${!isToday && hasDayHoliday ? holidayRingClass : ''}`}
+                style={hasDayHoliday && !isToday ? {
+                  '--ring-color': `var(--holiday-${primaryDayHoliday.color})`,
+                  boxShadow: `0 0 0 2px var(--holiday-${primaryDayHoliday.color})`,
+                  backgroundColor: `var(--holiday-${primaryDayHoliday.color}-light)`
+                } : {}}
               >
                 {/* Day Header */}
                 <div className="text-center mb-3 pb-2 border-b border-slate-100">
@@ -157,6 +173,11 @@ export default function WeeklyCalendar({
                     isToday ? 'text-slate-600' : 'text-ink/50'
                   }`}>
                     {DAY_NAMES[index]}
+                    {hasDayHoliday && (
+                      <span className="ml-1" title={dayHolidays.map(h => h.name).join(', ')}>
+                        {primaryDayHoliday.emoji}
+                      </span>
+                    )}
                   </div>
                   <div className={`text-2xl font-bold mt-1 ${
                     isToday ? 'text-slate-600' : 'text-ink'
@@ -167,6 +188,11 @@ export default function WeeklyCalendar({
                     <span className="text-[10px] font-medium text-white bg-slate-500 px-2 py-0.5 rounded-full">
                       Today
                     </span>
+                  )}
+                  {hasDayHoliday && !isToday && (
+                    <div className="text-[9px] font-medium text-ink/60 mt-1 truncate" title={primaryDayHoliday.name}>
+                      {primaryDayHoliday.name}
+                    </div>
                   )}
                 </div>
 

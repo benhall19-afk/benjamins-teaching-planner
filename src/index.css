@@ -809,3 +809,371 @@ h1, h2, h3, h4, h5, h6 {
     bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 }
+
+/* ============================================
+   HOLIDAY COLOR VARIABLES
+   ============================================ */
+:root {
+  /* Holiday Colors - very subtle backgrounds */
+  --holiday-gold: #c9a227;
+  --holiday-gold-light: rgba(201, 162, 39, 0.06);
+  --holiday-pink: #ec4899;
+  --holiday-pink-light: rgba(236, 72, 153, 0.06);
+  --holiday-pinkLight: #f472b6;
+  --holiday-pinkLight-light: rgba(244, 114, 182, 0.06);
+  --holiday-blue: #3b82f6;
+  --holiday-blue-light: rgba(59, 130, 246, 0.06);
+  --holiday-lightBlue: #38bdf8;
+  --holiday-lightBlue-light: rgba(56, 189, 248, 0.06);
+  --holiday-yellow: #eab308;
+  --holiday-yellow-light: rgba(234, 179, 8, 0.06);
+  --holiday-yellowLight: #facc15;
+  --holiday-yellowLight-light: rgba(250, 204, 21, 0.06);
+  --holiday-purple: #9333ea;
+  --holiday-purple-light: rgba(147, 51, 234, 0.06);
+  --holiday-orange: #f97316;
+  --holiday-orange-light: rgba(249, 115, 22, 0.06);
+  --holiday-green: #16a34a;
+  --holiday-green-light: rgba(22, 163, 74, 0.06);
+  --holiday-slate: #64748b;
+  --holiday-slate-light: rgba(100, 116, 139, 0.06);
+}
+
+/* ============================================
+   WEEK ROW HOLIDAY INDICATOR
+   ============================================ */
+
+/* Week row with holiday - subtle background only, no border */
+.week-row-holiday {
+  position: relative;
+  border-radius: 0.75rem;
+  margin: 2px 0;
+}
+
+.week-row-holiday::before {
+  content: '';
+  position: absolute;
+  /* Don't overlap the week number on the left */
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 36px;
+  border-radius: 0.75rem;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Color variants - background only, no border */
+.week-row-holiday--gold::before {
+  background: var(--holiday-gold-light);
+}
+
+.week-row-holiday--pink::before {
+  background: var(--holiday-pink-light);
+}
+
+.week-row-holiday--pinkLight::before {
+  background: var(--holiday-pinkLight-light);
+}
+
+.week-row-holiday--blue::before {
+  background: var(--holiday-blue-light);
+}
+
+.week-row-holiday--lightBlue::before {
+  background: var(--holiday-lightBlue-light);
+}
+
+.week-row-holiday--yellow::before {
+  background: var(--holiday-yellow-light);
+}
+
+.week-row-holiday--yellowLight::before {
+  background: var(--holiday-yellowLight-light);
+}
+
+.week-row-holiday--purple::before {
+  background: var(--holiday-purple-light);
+}
+
+.week-row-holiday--orange::before {
+  background: var(--holiday-orange-light);
+}
+
+.week-row-holiday--green::before {
+  background: var(--holiday-green-light);
+}
+
+.week-row-holiday--slate::before {
+  background: var(--holiday-slate-light);
+}
+
+/* ============================================
+   WEEK INDICATOR HOLIDAY BADGE
+   ============================================ */
+
+.week-indicator-holiday {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.25rem;
+  line-height: 1;
+  z-index: 10;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+/* Multiple holidays - show first emoji with count */
+.week-indicator-holiday-multi {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.week-indicator-holiday-count {
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: white;
+  border-radius: 9999px;
+  padding: 0 3px;
+  min-width: 14px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================
+   DAY CELL HOLIDAY INDICATOR
+   ============================================ */
+
+.calendar-day-holiday {
+  position: relative;
+}
+
+.calendar-day-holiday::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 0.75rem;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Day holiday color variants - subtle tint with bottom accent */
+.calendar-day-holiday--gold::after {
+  background: var(--holiday-gold-light);
+  border-bottom: 3px solid var(--holiday-gold);
+}
+
+.calendar-day-holiday--pink::after {
+  background: var(--holiday-pink-light);
+  border-bottom: 3px solid var(--holiday-pink);
+}
+
+.calendar-day-holiday--pinkLight::after {
+  background: var(--holiday-pinkLight-light);
+  border-bottom: 3px solid var(--holiday-pinkLight);
+}
+
+.calendar-day-holiday--blue::after {
+  background: var(--holiday-blue-light);
+  border-bottom: 3px solid var(--holiday-blue);
+}
+
+.calendar-day-holiday--lightBlue::after {
+  background: var(--holiday-lightBlue-light);
+  border-bottom: 3px solid var(--holiday-lightBlue);
+}
+
+.calendar-day-holiday--yellow::after {
+  background: var(--holiday-yellow-light);
+  border-bottom: 3px solid var(--holiday-yellow);
+}
+
+.calendar-day-holiday--yellowLight::after {
+  background: var(--holiday-yellowLight-light);
+  border-bottom: 3px solid var(--holiday-yellowLight);
+}
+
+.calendar-day-holiday--purple::after {
+  background: var(--holiday-purple-light);
+  border-bottom: 3px solid var(--holiday-purple);
+}
+
+.calendar-day-holiday--orange::after {
+  background: var(--holiday-orange-light);
+  border-bottom: 3px solid var(--holiday-orange);
+}
+
+.calendar-day-holiday--green::after {
+  background: var(--holiday-green-light);
+  border-bottom: 3px solid var(--holiday-green);
+}
+
+.calendar-day-holiday--slate::after {
+  background: var(--holiday-slate-light);
+  border-bottom: 3px solid var(--holiday-slate);
+}
+
+/* Holiday emoji label in day cell */
+.day-holiday-label {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-size: 0.6rem;
+  line-height: 1;
+  z-index: 5;
+  opacity: 0.9;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+}
+
+/* ============================================
+   UPCOMING HOLIDAYS INFO BOX
+   ============================================ */
+
+.upcoming-holidays {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.5rem 0;
+  margin-top: 1rem;
+}
+
+.upcoming-holidays::-webkit-scrollbar {
+  height: 4px;
+}
+
+.upcoming-holiday-card {
+  flex: 0 0 auto;
+  min-width: 120px;
+  max-width: 160px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.upcoming-holiday-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.upcoming-holiday-header {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.upcoming-holiday-emoji {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.upcoming-holiday-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upcoming-holiday-countdown {
+  font-size: 0.65rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+/* Color variants for upcoming holiday cards - stronger backgrounds than week rows */
+.upcoming-holiday-card--gold {
+  background: rgba(201, 162, 39, 0.12);
+  border: 1px solid rgba(201, 162, 39, 0.3);
+}
+.upcoming-holiday-card--gold .upcoming-holiday-countdown { color: #92750e; }
+
+.upcoming-holiday-card--pink {
+  background: rgba(236, 72, 153, 0.12);
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+.upcoming-holiday-card--pink .upcoming-holiday-countdown { color: #be185d; }
+
+.upcoming-holiday-card--pinkLight {
+  background: rgba(244, 114, 182, 0.12);
+  border: 1px solid rgba(244, 114, 182, 0.3);
+}
+.upcoming-holiday-card--pinkLight .upcoming-holiday-countdown { color: #db2777; }
+
+.upcoming-holiday-card--blue {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.upcoming-holiday-card--blue .upcoming-holiday-countdown { color: #1d4ed8; }
+
+.upcoming-holiday-card--lightBlue {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+.upcoming-holiday-card--lightBlue .upcoming-holiday-countdown { color: #0284c7; }
+
+.upcoming-holiday-card--yellow {
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+.upcoming-holiday-card--yellow .upcoming-holiday-countdown { color: #a16207; }
+
+.upcoming-holiday-card--yellowLight {
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.3);
+}
+.upcoming-holiday-card--yellowLight .upcoming-holiday-countdown { color: #ca8a04; }
+
+.upcoming-holiday-card--purple {
+  background: rgba(147, 51, 234, 0.12);
+  border: 1px solid rgba(147, 51, 234, 0.3);
+}
+.upcoming-holiday-card--purple .upcoming-holiday-countdown { color: #7c3aed; }
+
+.upcoming-holiday-card--orange {
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+.upcoming-holiday-card--orange .upcoming-holiday-countdown { color: #c2410c; }
+
+.upcoming-holiday-card--green {
+  background: rgba(22, 163, 74, 0.12);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+}
+.upcoming-holiday-card--green .upcoming-holiday-countdown { color: #15803d; }
+
+.upcoming-holiday-card--slate {
+  background: rgba(100, 116, 139, 0.12);
+  border: 1px solid rgba(100, 116, 139, 0.3);
+}
+.upcoming-holiday-card--slate .upcoming-holiday-countdown { color: #475569; }
+
+/* Responsive adjustments */
+@media (min-width: 640px) {
+  .week-indicator-holiday {
+    top: -16px;
+    font-size: 1.4rem;
+  }
+
+  .week-row-holiday::before {
+    left: 44px;
+  }
+
+  .day-holiday-label {
+    font-size: 0.7rem;
+  }
+
+  .upcoming-holiday-card {
+    min-width: 140px;
+    max-width: 180px;
+  }
+}
