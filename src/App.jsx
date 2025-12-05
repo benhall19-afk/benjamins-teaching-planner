@@ -7,7 +7,7 @@ import {
   LESSON_TYPE_OPTIONS, PREACHERS, SPECIAL_EVENTS,
   MONTH_NAMES, DAY_NAMES, getAllHashtags
 } from './constants';
-import { VIEWS, isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle } from './viewConfig';
+import { VIEWS, isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle, isEnglishClassPrepared, isEnglishClassCompleted, getEnglishClassDisplayTitle } from './viewConfig';
 import ViewSwitcher from './components/ViewSwitcher';
 import ItemDetailPopup from './components/ItemDetailPopup';
 import PlanMonthModal from './components/PlanMonthModal';
@@ -577,6 +577,12 @@ export default function App() {
   const [selectedDevotionLesson, setSelectedDevotionLesson] = useState(null);
   const [showPlanMonthModal, setShowPlanMonthModal] = useState(false);
 
+  // English class data state
+  const [englishSeries, setEnglishSeries] = useState([]);
+  const [englishClasses, setEnglishClasses] = useState([]);
+  const [englishLoading, setEnglishLoading] = useState(false);
+  const [selectedEnglishClass, setSelectedEnglishClass] = useState(null);
+
   // Unscheduled sermons sidebar
   const [showUnscheduled, setShowUnscheduled] = useState(false);
 
@@ -641,12 +647,14 @@ export default function App() {
     setError(null);
     try {
       // Schedule now contains all entries (including migrated sermons with content)
-      // Also pre-load devotions since backend cache is pre-warmed
-      const [scheduleData, seriesData, devotionSeriesData, devotionLessonsData] = await Promise.all([
+      // Also pre-load devotions and english classes since backend cache is pre-warmed
+      const [scheduleData, seriesData, devotionSeriesData, devotionLessonsData, englishSeriesData, englishClassesData] = await Promise.all([
         api.fetchSchedule().catch((e) => { console.error('Failed to fetch schedule:', e); return []; }),
         api.fetchSeries().catch((e) => { console.error('Failed to fetch series:', e); return []; }),
         api.fetchDevotionSeries().catch((e) => { console.error('Failed to fetch devotion series:', e); return []; }),
-        api.fetchDevotionLessons().catch((e) => { console.error('Failed to fetch devotion lessons:', e); return []; })
+        api.fetchDevotionLessons().catch((e) => { console.error('Failed to fetch devotion lessons:', e); return []; }),
+        api.fetchEnglishSeries().catch((e) => { console.error('Failed to fetch english series:', e); return []; }),
+        api.fetchEnglishClasses().catch((e) => { console.error('Failed to fetch english classes:', e); return []; })
       ]);
 
       setSchedule(scheduleData);
@@ -656,6 +664,9 @@ export default function App() {
       // Pre-load devotions for instant view switching
       setDevotionSeries(devotionSeriesData);
       setDevotionLessons(devotionLessonsData);
+      // Pre-load english classes for instant view switching
+      setEnglishSeries(englishSeriesData);
+      setEnglishClasses(englishClassesData);
     } catch (err) {
       console.error('loadData error:', err);
       setError('Failed to load data. Using offline mode.');
@@ -682,10 +693,31 @@ export default function App() {
     setDevotionsLoading(false);
   }
 
-  // Load devotions when switching to devotions or combined view
+  // Load English classes data on demand
+  async function loadEnglish(forceRefresh = false) {
+    if (!forceRefresh && englishClasses.length > 0) return; // Already loaded
+    setEnglishLoading(true);
+    try {
+      const [seriesData, classesData] = await Promise.all([
+        api.fetchEnglishSeries().catch((e) => { console.error('Failed to fetch english series:', e); return []; }),
+        api.fetchEnglishClasses().catch((e) => { console.error('Failed to fetch english classes:', e); return []; })
+      ]);
+      setEnglishSeries(seriesData);
+      setEnglishClasses(classesData);
+    } catch (err) {
+      console.error('loadEnglish error:', err);
+      showToast('Could not load English class data.', 'error');
+    }
+    setEnglishLoading(false);
+  }
+
+  // Load data when switching views
   useEffect(() => {
     if (currentView === 'devotions' || currentView === 'combined') {
       loadDevotions();
+    }
+    if (currentView === 'english' || currentView === 'combined') {
+      loadEnglish();
     }
   }, [currentView]);
 
@@ -765,6 +797,13 @@ export default function App() {
     return devotionSeries.find(s => s.title && s.title.trim() !== '') || null;
   }, [devotionSeries]);
 
+  // Get the active English series (first one with a title)
+  const activeEnglishSeries = useMemo(() => {
+    if (englishSeries.length === 0) return null;
+    // Find the first series with a title (filter out empty placeholder entries)
+    return englishSeries.find(s => s.title && s.title.trim() !== '') || null;
+  }, [englishSeries]);
+
   // Transform devotion series for timeline display
   const devotionSeriesForTimeline = useMemo(() => {
     return devotionSeries
@@ -789,6 +828,31 @@ export default function App() {
         };
       });
   }, [devotionSeries, devotionLessons]);
+
+  // Transform English series for timeline display
+  const englishSeriesForTimeline = useMemo(() => {
+    return englishSeries
+      .filter(s => s.title && s.title.trim() !== '')
+      .map(s => {
+        // Calculate end date based on classes if not explicitly set
+        const seriesClasses = englishClasses.filter(c => c.series_id === s.id);
+        const scheduledDates = seriesClasses
+          .map(c => c.class_date)
+          .filter(Boolean)
+          .sort();
+        const lastScheduledDate = scheduledDates.length > 0 ? scheduledDates[scheduledDates.length - 1] : null;
+
+        return {
+          id: s.id,
+          title: s.title,
+          startDate: s.series_start_date || s.properties?.series_start_date,
+          endDate: s.series_completion_date || s.properties?.series_completion_date || lastScheduledDate || s.series_start_date || s.properties?.series_start_date,
+          isEnglishSeries: true,
+          classCount: seriesClasses.length,
+          completedCount: seriesClasses.filter(c => c.class_status?.toLowerCase() === 'complete').length
+        };
+      });
+  }, [englishSeries, englishClasses]);
 
   // Keep index in bounds when list shrinks (after completing sermons)
   useEffect(() => {
@@ -925,6 +989,18 @@ export default function App() {
       events.push(...devotions);
     }
 
+    // Get English classes (for 'english' and 'combined' views)
+    if (currentView === 'english' || currentView === 'combined') {
+      const english = englishClasses.filter(item => {
+        if (!item.class_date) return false;
+        const itemDate = item.class_date.split('T')[0];
+        // Don't show cancelled classes in calendar
+        if (item.class_status?.toLowerCase() === 'cancelled class') return false;
+        return itemDate === dateStr;
+      }).map(item => ({ ...item, source: 'english' }));
+      events.push(...english);
+    }
+
     return events;
   };
 
@@ -1034,16 +1110,30 @@ export default function App() {
   const handleDrop = async (newDate) => {
     if (!draggedEvent) return;
 
-    // Check if this is a devotion or sermon
-    const isDevotionDrag = draggedEvent.source === 'devotion' || draggedEvent.scheduled_date !== undefined;
+    // Check event type
+    const isDevotionDrag = draggedEvent.source === 'devotion' || (draggedEvent.scheduled_date !== undefined && !draggedEvent.class_date);
+    const isEnglishDrag = draggedEvent.source === 'english' || draggedEvent.class_date !== undefined;
 
-    const oldDate = isDevotionDrag ? draggedEvent.scheduled_date : draggedEvent.sermon_date;
+    const oldDate = isEnglishDrag ? draggedEvent.class_date : (isDevotionDrag ? draggedEvent.scheduled_date : draggedEvent.sermon_date);
     if (oldDate === newDate) {
       setDraggedEvent(null);
       return;
     }
 
-    if (isDevotionDrag) {
+    if (isEnglishDrag) {
+      // Handle English class drop with cascade reschedule
+      setDraggedEvent(null);
+      showToast('Rescheduling English classes...', 'info');
+
+      try {
+        const result = await api.cascadeRescheduleEnglish(draggedEvent.id, newDate);
+        // Reload English classes to get the updated schedule
+        await loadEnglish(true);
+        showToast(`Rescheduled ${result.rescheduled} class${result.rescheduled !== 1 ? 'es' : ''}!`, 'success');
+      } catch (err) {
+        showToast('Failed to reschedule: ' + err.message, 'error');
+      }
+    } else if (isDevotionDrag) {
       // Handle devotion drop with cascade reschedule
       // This will move the dragged lesson AND shift all following lessons to valid days
       setDraggedEvent(null);
@@ -1451,10 +1541,10 @@ export default function App() {
               >
                 <div className="px-4 sm:px-6 pb-3">
                   <SeriesTimeline
-                    series={currentView === 'devotions' ? devotionSeriesForTimeline : seriesOptions}
-                    schedule={currentView === 'devotions' ? devotionLessons : schedule}
+                    series={currentView === 'devotions' ? devotionSeriesForTimeline : currentView === 'english' ? englishSeriesForTimeline : seriesOptions}
+                    schedule={currentView === 'devotions' ? devotionLessons : currentView === 'english' ? englishClasses : schedule}
                     currentDate={currentDate}
-                    isDevotionView={currentView === 'devotions'}
+                    isDevotionView={currentView === 'devotions' || currentView === 'english'}
                     onSeriesClick={(s) => {
                       // Navigate to the series start date in calendar
                       if (s.startDate) {
@@ -1462,7 +1552,7 @@ export default function App() {
                         setCurrentDate(new Date(d.getFullYear(), d.getMonth(), 1));
                       }
                     }}
-                    onSeriesUpdate={currentView === 'devotions' ? null : async (seriesId, updates) => {
+                    onSeriesUpdate={(currentView === 'devotions' || currentView === 'english') ? null : async (seriesId, updates) => {
                       try {
                         await api.updateSeries(seriesId, updates);
                         // Refresh series list
@@ -1483,6 +1573,11 @@ export default function App() {
                           // Refresh devotion series list
                           const freshSeries = await api.fetchDevotionSeries();
                           setDevotionSeries(freshSeries);
+                        } else if (currentView === 'english') {
+                          await api.addEnglishSeries(title, startDate, endDate);
+                          // Refresh English series list
+                          const freshSeries = await api.fetchEnglishSeries();
+                          setEnglishSeries(freshSeries);
                         } else {
                           await api.addSeries(title, startDate, endDate);
                           // Refresh sermon series list
@@ -1513,11 +1608,14 @@ export default function App() {
                 <WeeklyCalendar
                   sermons={schedule}
                   devotions={devotionLessons}
+                  englishClasses={englishClasses}
                   currentDate={currentDate}
                   onDateChange={setCurrentDate}
                   onEventClick={(event) => {
                     if (event.source === 'devotion') {
                       setSelectedDevotionLesson(event);
+                    } else if (event.source === 'english') {
+                      setSelectedEnglishClass(event);
                     } else {
                       setSelectedSermon({ ...event });
                     }
@@ -1904,6 +2002,37 @@ export default function App() {
                               {Array.isArray(activeDevotionSeries.what_days_of_the_week)
                                 ? activeDevotionSeries.what_days_of_the_week.join(', ')
                                 : activeDevotionSeries.what_days_of_the_week}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-ink/50">No active series</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShowPlanMonthModal(true)}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 btn-themed text-xs sm:text-sm"
+                  >
+                    Schedule Next 30 Days
+                  </button>
+                </div>
+              )}
+
+              {/* English View Footer */}
+              {currentView === 'english' && (
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    {activeEnglishSeries ? (
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className="text-[10px] font-medium uppercase tracking-wider text-purple-600 mb-0.5">Active Series</div>
+                          <div className="font-semibold text-ink">{activeEnglishSeries.title}</div>
+                          {activeEnglishSeries.what_days_of_the_week && (
+                            <div className="text-[10px] text-ink/50 mt-0.5">
+                              {Array.isArray(activeEnglishSeries.what_days_of_the_week)
+                                ? activeEnglishSeries.what_days_of_the_week.join(', ')
+                                : activeEnglishSeries.what_days_of_the_week}
                             </div>
                           )}
                         </div>
@@ -2325,6 +2454,27 @@ export default function App() {
         }}
       />
 
+      {/* English Class Detail Popup */}
+      <ItemDetailPopup
+        item={selectedEnglishClass}
+        source="english"
+        isOpen={!!selectedEnglishClass}
+        onClose={() => setSelectedEnglishClass(null)}
+        onUpdate={(updatedItem) => {
+          // Update the class in the local state
+          setEnglishClasses(prev =>
+            prev.map(englishClass =>
+              englishClass.id === updatedItem.id ? updatedItem : englishClass
+            )
+          );
+          showToast('English class updated', 'success');
+        }}
+        onEdit={(item) => {
+          // For now, just show a toast - full edit modal can be added later
+          showToast('Edit functionality coming soon', 'info');
+        }}
+      />
+
       {/* Sermon Detail Popup */}
       <ItemDetailPopup
         item={selectedSermon}
@@ -2347,16 +2497,21 @@ export default function App() {
         }}
       />
 
-      {/* Plan Month Modal for Devotions */}
+      {/* Plan Month Modal for Devotions and English */}
       <PlanMonthModal
         isOpen={showPlanMonthModal}
         onClose={() => setShowPlanMonthModal(false)}
-        activeSeries={activeDevotionSeries}
-        lessons={devotionLessons}
+        currentView={currentView}
+        activeSeries={currentView === 'english' ? activeEnglishSeries : activeDevotionSeries}
+        lessons={currentView === 'english' ? englishClasses : devotionLessons}
         onPlanComplete={(result) => {
-          // Refresh devotion lessons after planning
-          loadDevotions(true);
-          showToast(`Scheduled ${result.scheduled || 'lessons'} for the next 30 days`, 'success');
+          if (currentView === 'english') {
+            loadEnglish(true);
+            showToast(`Scheduled ${result.scheduled || 'classes'} for the next 30 days`, 'success');
+          } else {
+            loadDevotions(true);
+            showToast(`Scheduled ${result.scheduled || 'lessons'} for the next 30 days`, 'success');
+          }
         }}
       />
 

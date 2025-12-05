@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as api from '../api';
-import { isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle } from '../viewConfig';
+import { isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle, isEnglishClassPrepared, getEnglishClassDisplayTitle } from '../viewConfig';
 import LoadingIndicator from './LoadingIndicator';
 
 export default function ItemDetailPopup({
@@ -20,9 +20,13 @@ export default function ItemDetailPopup({
 
   // Local optimistic state for prepared toggle
   const initialPrepared = item
-    ? (source === 'sermon' ? isSermonPrepared(item) : isDevotionPrepared(item))
+    ? (source === 'sermon' ? isSermonPrepared(item) : source === 'devotion' ? isDevotionPrepared(item) : isEnglishClassPrepared(item))
     : false;
   const [localPrepared, setLocalPrepared] = useState(initialPrepared);
+
+  // Local optimistic state for English class status
+  const [localClassStatus, setLocalClassStatus] = useState(item?.class_status || 'Preparing');
+  const [updatingClassStatus, setUpdatingClassStatus] = useState(false);
 
   // Local optimistic state for sermon status
   const [localStatus, setLocalStatus] = useState(item?.status || 'Draft');
@@ -33,10 +37,15 @@ export default function ItemDetailPopup({
     if (item) {
       const prepared = source === 'sermon'
         ? isSermonPrepared(item)
-        : isDevotionPrepared(item);
+        : source === 'devotion'
+        ? isDevotionPrepared(item)
+        : isEnglishClassPrepared(item);
       setLocalPrepared(prepared);
       if (source === 'sermon') {
         setLocalStatus(item.status || 'Draft');
+      }
+      if (source === 'english') {
+        setLocalClassStatus(item.class_status || 'Preparing');
       }
     }
   }, [item, source]);
@@ -57,7 +66,9 @@ export default function ItemDetailPopup({
 
   const displayTitle = source === 'sermon'
     ? (item.sermon_name || item.title || 'Untitled')
-    : getDevotionDisplayTitle(item);
+    : source === 'devotion'
+    ? getDevotionDisplayTitle(item)
+    : getEnglishClassDisplayTitle(item);
 
   const handleMarkComplete = async () => {
     setMarkingComplete(true);
@@ -132,7 +143,30 @@ export default function ItemDetailPopup({
     setUpdatingStatus(false);
   };
 
-  const colorClass = source === 'sermon' ? 'sage' : 'amber';
+  const handleClassStatusChange = async (newStatus) => {
+    if (source !== 'english') return;
+
+    const oldStatus = localClassStatus;
+
+    // Optimistic update
+    setLocalClassStatus(newStatus);
+    setUpdatingClassStatus(true);
+    setError(null);
+
+    try {
+      await api.updateEnglishClass(item.id, { class_status: newStatus });
+      onUpdate?.({ ...item, class_status: newStatus }, source);
+    } catch (err) {
+      // Revert on error
+      setLocalClassStatus(oldStatus);
+      console.error('Failed to update class status:', err);
+      setError(err.message || 'Failed to update status. Please try again.');
+    }
+
+    setUpdatingClassStatus(false);
+  };
+
+  const colorClass = source === 'sermon' ? 'sage' : source === 'devotion' ? 'amber' : 'purple';
 
   // Generate Craft deeplink URL (only for items with valid UUID format)
   const spaceId = import.meta.env.VITE_CRAFT_SPACE_ID;
@@ -155,9 +189,9 @@ export default function ItemDetailPopup({
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1 pr-4">
             <div className={`text-xs font-medium text-${colorClass}-600 uppercase tracking-wider mb-1`}>
-              {source === 'sermon' ? 'Sermon' : (item.category || 'Devotion')}
+              {source === 'sermon' ? 'Sermon' : source === 'devotion' ? (item.category || 'Devotion') : 'English Class'}
             </div>
-            {source === 'sermon' && (
+            {(source === 'sermon' || source === 'english') && (
               <h2 className="text-xl font-semibold text-ink">{displayTitle}</h2>
             )}
           </div>
@@ -243,6 +277,36 @@ export default function ItemDetailPopup({
                     )}
                   </>
                 )}
+
+                {source === 'english' && (
+                  <>
+                    {item.series_title && (
+                      <div>
+                        <span className="text-xs text-ink/50">Series:</span>
+                        <div className="text-sm font-medium text-ink">{item.series_title}</div>
+                      </div>
+                    )}
+                    {item.class_date && (
+                      <div>
+                        <span className="text-xs text-ink/50">Date:</span>
+                        <div className="text-sm font-medium text-ink">
+                          {new Date(item.class_date).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {item.notes && (
+                      <div>
+                        <span className="text-xs text-ink/50">Notes:</span>
+                        <div className="text-sm text-ink">{item.notes}</div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               {/* Prepared Toggle (Devotions only) */}
@@ -286,6 +350,24 @@ export default function ItemDetailPopup({
                     <option value="Ready to Preach">Ready to Preach</option>
                     <option value="Complete">Complete</option>
                     <option value="Archive">Archive</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Status Section (English Classes) */}
+              {source === 'english' && (
+                <div className="bg-white/50 rounded-xl p-4">
+                  <div className="text-sm font-medium text-ink mb-2">Class Status</div>
+                  <select
+                    value={localClassStatus}
+                    onChange={(e) => handleClassStatusChange(e.target.value)}
+                    disabled={updatingClassStatus}
+                    className={`w-full input-glass text-sm ${updatingClassStatus ? 'opacity-50' : ''}`}
+                  >
+                    <option value="Preparing">Preparing</option>
+                    <option value="Prepared">Prepared</option>
+                    <option value="Complete">Complete</option>
+                    <option value="Cancelled Class">Cancelled Class</option>
                   </select>
                 </div>
               )}
@@ -357,9 +439,9 @@ export default function ItemDetailPopup({
 
       {/* Loading Indicator */}
       <LoadingIndicator
-        isLoading={togglingPrepared || markingComplete || updatingStatus}
+        isLoading={togglingPrepared || markingComplete || updatingStatus || updatingClassStatus}
         colorClass={colorClass}
-        message={markingComplete ? 'Marking complete...' : updatingStatus ? 'Updating status...' : 'Updating...'}
+        message={markingComplete ? 'Marking complete...' : updatingStatus ? 'Updating status...' : updatingClassStatus ? 'Updating class status...' : 'Updating...'}
       />
     </div>
   );

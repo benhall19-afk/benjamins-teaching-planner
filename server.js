@@ -53,6 +53,19 @@ const DEVOTIONS_COLLECTIONS = {
 };
 
 // ============================================
+// ENGLISH CLASS API CONFIGURATION
+// ============================================
+
+const ENGLISH_API_URL = process.env.ENGLISH_API_URL || '';
+const ENGLISH_API_KEY = process.env.ENGLISH_API_KEY || '';
+
+// Known collection IDs for English classes (from API discovery)
+const ENGLISH_COLLECTIONS = {
+  series: '7C9E077B-31E3-4164-B7D9-E7D787C54D8B',
+  classes: '71E90888-EA24-4104-AC36-82B82C8D0C82'
+};
+
+// ============================================
 // IN-MEMORY CACHE WITH TTL
 // ============================================
 
@@ -130,6 +143,42 @@ function invalidateCacheDevotions(key) {
   }
 }
 
+// ============================================
+// ENGLISH CLASS CACHE
+// ============================================
+
+const englishCache = {
+  series: { data: null, timestamp: 0, refreshing: false },
+  classes: { data: null, timestamp: 0, refreshing: false }
+};
+
+function getCachedEnglish(key) {
+  const entry = englishCache[key];
+  if (entry.data && (Date.now() - entry.timestamp) < CACHE_TTL) {
+    return { data: entry.data, fresh: true };
+  }
+  if (entry.data && (Date.now() - entry.timestamp) < STALE_TTL) {
+    return { data: entry.data, fresh: false };
+  }
+  return null;
+}
+
+function setCacheEnglish(key, data) {
+  englishCache[key] = { data, timestamp: Date.now(), refreshing: false };
+}
+
+function setRefreshingEnglish(key, value) {
+  if (englishCache[key]) englishCache[key].refreshing = value;
+}
+
+function invalidateCacheEnglish(key) {
+  if (key) {
+    englishCache[key] = { data: null, timestamp: 0 };
+  } else {
+    Object.keys(englishCache).forEach(k => englishCache[k] = { data: null, timestamp: 0 });
+  }
+}
+
 // Legacy variables (kept for compatibility)
 let sermonsCache = [];
 let scheduleCache = [];
@@ -201,6 +250,32 @@ async function devotionsRequest(endpoint, options = {}) {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Devotions API error (${response.status}): ${errorText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Make authenticated request to English Class Craft API
+ */
+async function englishRequest(endpoint, options = {}) {
+  if (!ENGLISH_API_URL || !ENGLISH_API_KEY) {
+    throw new Error('English Class API not configured');
+  }
+
+  const url = `${ENGLISH_API_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${ENGLISH_API_KEY}`,
+      ...options.headers
+    }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`English Class API error (${response.status}): ${errorText}`);
   }
 
   return response.json();
@@ -1323,6 +1398,368 @@ app.post('/api/devotions/cascade-reschedule', async (req, res) => {
     }
 
     invalidateCacheDevotions('lessons');
+    res.json({ success: true, rescheduled: updates.length });
+  } catch (error) {
+    console.error('Failed to cascade reschedule:', error);
+    res.status(500).json({ error: 'Failed to cascade reschedule', details: error.message });
+  }
+});
+
+// ============================================
+// ENGLISH CLASS API ROUTES
+// ============================================
+
+// Helpers to fetch English class data
+async function fetchEnglishSeriesData() {
+  const result = await englishRequest(`/collections/${ENGLISH_COLLECTIONS.series}/items`);
+  return (result.items || result).map(item => ({
+    id: item.id,
+    title: item.title || '',
+    series_start_date: item.properties?.series_start_date || null,
+    series_completion_date: item.properties?.series_completion_date || null,
+    what_days_of_the_week: item.properties?.what_days_of_the_week || [],
+    properties: item.properties
+  }));
+}
+
+async function fetchEnglishClassesData() {
+  const result = await englishRequest(`/collections/${ENGLISH_COLLECTIONS.classes}/items`);
+  return (result.items || result).map(item => ({
+    id: item.id,
+    title: item.title || '',
+    class_date: item.properties?.class_date || null,
+    class_status: item.properties?.class_status || null,
+    notes: item.properties?.notes || null,
+    needed_resources: item.properties?.needed_resources || null,
+    series_id: item.properties?.english_class_series?.relations?.[0]?.blockId || null,
+    series_title: item.properties?.english_class_series?.relations?.[0]?.title || null,
+    properties: item.properties,
+    content: item.content || []
+  }));
+}
+
+// Get English class series (with days of week configuration)
+app.get('/api/english/series', async (req, res) => {
+  try {
+    const cached = getCachedEnglish('series');
+    if (cached) {
+      res.json(cached.data);
+
+      if (!cached.fresh && !englishCache.series.refreshing) {
+        setRefreshingEnglish('series', true);
+        fetchEnglishSeriesData()
+          .then(data => {
+            setCacheEnglish('series', data);
+            console.log('English series cache refreshed in background');
+          })
+          .catch(err => {
+            console.error('English series background refresh failed:', err.message);
+            setRefreshingEnglish('series', false);
+          });
+      }
+      return;
+    }
+
+    const series = await fetchEnglishSeriesData();
+    setCacheEnglish('series', series);
+    res.json(series);
+  } catch (error) {
+    console.error('Failed to fetch English series:', error);
+    res.status(500).json({ error: 'Failed to fetch English series', details: error.message });
+  }
+});
+
+// Add a new English class series
+app.post('/api/english/series', async (req, res) => {
+  try {
+    const { title, startDate, endDate } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const properties = {};
+    if (startDate) properties.series_start_date = startDate;
+    if (endDate) properties.series_completion_date = endDate;
+
+    const result = await englishRequest(`/collections/${ENGLISH_COLLECTIONS.series}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ items: [{ title, properties }] })
+    });
+
+    invalidateCacheEnglish('series');
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to add English series:', error);
+    res.status(500).json({ error: 'Failed to add English series', details: error.message });
+  }
+});
+
+// Get all English classes
+app.get('/api/english/classes', async (req, res) => {
+  try {
+    const cached = getCachedEnglish('classes');
+    if (cached) {
+      res.json(cached.data);
+
+      if (!cached.fresh && !englishCache.classes.refreshing) {
+        setRefreshingEnglish('classes', true);
+        fetchEnglishClassesData()
+          .then(data => {
+            setCacheEnglish('classes', data);
+            console.log('English classes cache refreshed in background');
+          })
+          .catch(err => {
+            console.error('English classes background refresh failed:', err.message);
+            setRefreshingEnglish('classes', false);
+          });
+      }
+      return;
+    }
+
+    const classes = await fetchEnglishClassesData();
+    setCacheEnglish('classes', classes);
+    res.json(classes);
+  } catch (error) {
+    console.error('Failed to fetch English classes:', error);
+    res.status(500).json({ error: 'Failed to fetch English classes', details: error.message });
+  }
+});
+
+// Add a new English class
+app.post('/api/english/classes', async (req, res) => {
+  try {
+    const { title, classDate, seriesId, notes } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const properties = {
+      class_status: 'Preparing'
+    };
+    if (classDate) properties.class_date = classDate;
+    if (notes) properties.notes = notes;
+    if (seriesId) {
+      properties.english_class_series = {
+        relations: [{ blockId: seriesId }]
+      };
+    }
+
+    const result = await englishRequest(`/collections/${ENGLISH_COLLECTIONS.classes}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ items: [{ title, properties }] })
+    });
+
+    invalidateCacheEnglish('classes');
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to add English class:', error);
+    res.status(500).json({ error: 'Failed to add English class', details: error.message });
+  }
+});
+
+// Update an English class
+app.put('/api/english/classes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const craftUpdates = { id, properties: {} };
+
+    // Map fields to properties
+    if (updates.class_date !== undefined) craftUpdates.properties.class_date = updates.class_date;
+    if (updates.class_status !== undefined) craftUpdates.properties.class_status = updates.class_status;
+    if (updates.notes !== undefined) craftUpdates.properties.notes = updates.notes;
+
+    const result = await englishRequest(`/collections/${ENGLISH_COLLECTIONS.classes}/items`, {
+      method: 'PUT',
+      body: JSON.stringify({ itemsToUpdate: [craftUpdates] })
+    });
+
+    invalidateCacheEnglish('classes');
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error('Failed to update English class:', error);
+    res.status(500).json({ error: 'Failed to update English class', details: error.message });
+  }
+});
+
+// Plan classes for the next 30 days
+app.post('/api/english/plan-month', async (req, res) => {
+  try {
+    // 1. Get active series (first one with a start date)
+    const seriesResult = await englishRequest(`/collections/${ENGLISH_COLLECTIONS.series}/items`);
+    const allSeries = seriesResult.items || seriesResult;
+    const activeSeries = allSeries.find(s => s.properties?.series_start_date && s.title);
+
+    if (!activeSeries) {
+      return res.status(400).json({ error: 'No active series found' });
+    }
+
+    const daysOfWeek = activeSeries.properties?.what_days_of_the_week || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+    // 2. Get all classes and sort by class_date
+    const classesResult = await englishRequest(`/collections/${ENGLISH_COLLECTIONS.classes}/items`);
+    const allClasses = classesResult.items || classesResult;
+
+    // Sort classes by existing class_date or leave unsorted if no dates
+    const classes = allClasses.sort((a, b) => {
+      const dateA = a.properties?.class_date;
+      const dateB = b.properties?.class_date;
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return new Date(dateA) - new Date(dateB);
+    });
+
+    // 3. Find last completed class (has class_status = 'Complete')
+    const completedClasses = classes.filter(c => c.properties?.class_status?.toLowerCase() === 'complete');
+    let startIndex = 0;
+
+    if (completedClasses.length > 0) {
+      // Find the most recently completed by class_date
+      completedClasses.sort((a, b) =>
+        new Date(b.properties.class_date) - new Date(a.properties.class_date)
+      );
+      const lastCompleted = completedClasses[0];
+      const lastCompletedIndex = classes.findIndex(c => c.id === lastCompleted.id);
+      startIndex = lastCompletedIndex + 1;
+    }
+
+    // 4. Generate next 30 calendar days matching days_of_week
+    const dayMap = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
+    const allowedDays = daysOfWeek.map(d => dayMap[d]).filter(d => d !== undefined);
+
+    const scheduleDates = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let current = new Date(today);
+
+    // Generate up to 30 matching dates (or stop after 90 days)
+    const maxDaysToSearch = 90;
+    let daysSearched = 0;
+
+    while (scheduleDates.length < 30 && daysSearched < maxDaysToSearch) {
+      if (allowedDays.includes(current.getDay())) {
+        scheduleDates.push(current.toISOString().split('T')[0]);
+      }
+      current.setDate(current.getDate() + 1);
+      daysSearched++;
+    }
+
+    // 5. Assign class_date to classes starting from startIndex
+    const updates = [];
+    for (let i = 0; i < scheduleDates.length && (startIndex + i) < classes.length; i++) {
+      const englishClass = classes[startIndex + i];
+      updates.push({
+        id: englishClass.id,
+        properties: { class_date: scheduleDates[i] }
+      });
+    }
+
+    // 6. Batch update
+    if (updates.length > 0) {
+      await englishRequest(`/collections/${ENGLISH_COLLECTIONS.classes}/items`, {
+        method: 'PUT',
+        body: JSON.stringify({ itemsToUpdate: updates })
+      });
+    }
+
+    invalidateCacheEnglish('classes');
+    res.json({
+      success: true,
+      scheduled: updates.length,
+      activeSeries: activeSeries.title,
+      daysOfWeek,
+      startFromClass: startIndex < classes.length ? classes[startIndex].title : null
+    });
+  } catch (error) {
+    console.error('Failed to plan month:', error);
+    res.status(500).json({ error: 'Failed to plan month', details: error.message });
+  }
+});
+
+// Cascade reschedule after a class is moved
+app.post('/api/english/cascade-reschedule', async (req, res) => {
+  try {
+    const { fromClassId, newDate } = req.body;
+
+    if (!fromClassId || !newDate) {
+      return res.status(400).json({ error: 'fromClassId and newDate are required' });
+    }
+
+    // Get active series for days_of_week
+    const seriesResult = await englishRequest(`/collections/${ENGLISH_COLLECTIONS.series}/items`);
+    const allSeries = seriesResult.items || seriesResult;
+    const activeSeries = allSeries.find(s => s.properties?.series_start_date && s.title);
+    const daysOfWeek = activeSeries?.properties?.what_days_of_the_week || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+    const dayMap = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
+    const allowedDays = daysOfWeek.map(d => dayMap[d]).filter(d => d !== undefined);
+
+    // Get all classes sorted by class_date
+    const classesResult = await englishRequest(`/collections/${ENGLISH_COLLECTIONS.classes}/items`);
+    const allClasses = classesResult.items || classesResult;
+
+    const classes = allClasses.sort((a, b) => {
+      const dateA = a.properties?.class_date;
+      const dateB = b.properties?.class_date;
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return new Date(dateA) - new Date(dateB);
+    });
+
+    // Find the moved class's index
+    const movedIndex = classes.findIndex(c => c.id === fromClassId);
+    if (movedIndex === -1) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    // Generate dates starting from newDate
+    const scheduleDates = [newDate];
+    let current = new Date(newDate);
+    current.setDate(current.getDate() + 1);
+
+    // Get remaining classes count after the moved one
+    const remainingCount = classes.length - movedIndex - 1;
+
+    // Generate enough dates for remaining classes
+    let generated = 0;
+    const maxDays = 180;
+    while (generated < remainingCount && generated < maxDays) {
+      if (allowedDays.includes(current.getDay())) {
+        scheduleDates.push(current.toISOString().split('T')[0]);
+        generated++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    // Build updates: moved class + all following classes
+    const updates = [];
+    updates.push({
+      id: fromClassId,
+      properties: { class_date: newDate }
+    });
+
+    for (let i = 1; i < scheduleDates.length && (movedIndex + i) < classes.length; i++) {
+      const englishClass = classes[movedIndex + i];
+      updates.push({
+        id: englishClass.id,
+        properties: { class_date: scheduleDates[i] }
+      });
+    }
+
+    // Batch update
+    if (updates.length > 0) {
+      await englishRequest(`/collections/${ENGLISH_COLLECTIONS.classes}/items`, {
+        method: 'PUT',
+        body: JSON.stringify({ itemsToUpdate: updates })
+      });
+    }
+
+    invalidateCacheEnglish('classes');
     res.json({ success: true, rescheduled: updates.length });
   } catch (error) {
     console.error('Failed to cascade reschedule:', error);

@@ -23,9 +23,19 @@ export const VIEWS = {
     primaryActionLabel: 'Plan This Month',
     emptyMessage: 'No devotions scheduled for this month',
   },
+  english: {
+    id: 'english',
+    name: 'Teaching English',
+    icon: '✏️',
+    theme: 'purple',
+    layout: 'monthly',
+    primaryAction: 'planMonth',
+    primaryActionLabel: 'Plan This Month',
+    emptyMessage: 'No classes scheduled for this month',
+  },
   combined: {
     id: 'combined',
-    name: 'All Scheduled',
+    name: 'This Week',
     icon: '📅',
     theme: 'neutral',
     layout: 'weekly',
@@ -35,7 +45,7 @@ export const VIEWS = {
   },
 };
 
-export const VIEW_ORDER = ['sermons', 'devotions', 'combined'];
+export const VIEW_ORDER = ['sermons', 'devotions', 'english', 'combined'];
 
 /**
  * Check if a sermon is prepared/ready
@@ -80,6 +90,45 @@ export function getDevotionDisplayTitle(lesson) {
   }
   if (lesson.title && !lesson.week_lesson) parts.push(lesson.title);
   return parts.join(' - ') || lesson.title || 'Untitled Lesson';
+}
+
+/**
+ * Check if an English class is prepared
+ * @param {Object} englishClass - English class object
+ * @returns {boolean}
+ */
+export function isEnglishClassPrepared(englishClass) {
+  const status = englishClass?.class_status?.toLowerCase() || '';
+  return status === 'prepared';
+}
+
+/**
+ * Check if an English class is completed
+ * @param {Object} englishClass - English class object
+ * @returns {boolean}
+ */
+export function isEnglishClassCompleted(englishClass) {
+  const status = englishClass?.class_status?.toLowerCase() || '';
+  return status === 'complete';
+}
+
+/**
+ * Check if an English class is cancelled
+ * @param {Object} englishClass - English class object
+ * @returns {boolean}
+ */
+export function isEnglishClassCancelled(englishClass) {
+  const status = englishClass?.class_status?.toLowerCase() || '';
+  return status === 'cancelled class';
+}
+
+/**
+ * Get display title for an English class
+ * @param {Object} englishClass - English class object
+ * @returns {string}
+ */
+export function getEnglishClassDisplayTitle(englishClass) {
+  return englishClass?.title || 'Untitled Class';
 }
 
 export default VIEWS;

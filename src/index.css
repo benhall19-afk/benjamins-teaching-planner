@@ -39,6 +39,16 @@
   --slate-600: #475569;
   --slate-700: #334155;
 
+  /* Purple palette (Teaching English) */
+  --purple-50: #faf5ff;
+  --purple-100: #f3e8ff;
+  --purple-200: #e9d5ff;
+  --purple-300: #d8b4fe;
+  --purple-400: #c084fc;
+  --purple-500: #a855f7;
+  --purple-600: #9333ea;
+  --purple-700: #7e22ce;
+
   /* Theme-aware variables (defaults to sage) */
   --theme-50: var(--sage-50);
   --theme-100: var(--sage-100);
@@ -72,6 +82,18 @@
   --theme-500: var(--slate-500);
   --theme-600: var(--slate-600);
   --theme-700: var(--slate-700);
+}
+
+/* Purple theme (Teaching English) */
+[data-theme="purple"] {
+  --theme-50: var(--purple-50);
+  --theme-100: var(--purple-100);
+  --theme-200: var(--purple-200);
+  --theme-300: var(--purple-300);
+  --theme-400: var(--purple-400);
+  --theme-500: var(--purple-500);
+  --theme-600: var(--purple-600);
+  --theme-700: var(--purple-700);
 }
 
 /* ============================================
@@ -785,6 +807,11 @@ h1, h2, h3, h4, h5, h6 {
 .event-card-amber {
   border-left: 3px solid var(--amber-500);
   background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, transparent 100%);
+}
+
+.event-card-purple {
+  border-left: 3px solid var(--purple-500);
+  background: linear-gradient(90deg, rgba(168, 85, 247, 0.08) 0%, transparent 100%);
 }
 
 /* Mobile Bottom Navigation */

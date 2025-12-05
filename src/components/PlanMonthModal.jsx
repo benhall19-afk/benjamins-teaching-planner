@@ -6,10 +6,15 @@ export default function PlanMonthModal({
   onClose,
   activeSeries,
   lessons,
-  onPlanComplete
+  onPlanComplete,
+  currentView = 'devotions' // 'devotions' or 'english'
 }) {
   const [isPlanning, setIsPlanning] = useState(false);
   const [error, setError] = useState(null);
+
+  // Determine theme colors based on view
+  const isEnglish = currentView === 'english';
+  const colorClass = isEnglish ? 'purple' : 'amber';
 
   // Find the last completed lesson and next lesson to schedule
   const planInfo = useMemo(() => {
@@ -17,7 +22,7 @@ export default function PlanMonthModal({
       return { lastCompleted: null, nextLesson: null, upcomingCount: 0 };
     }
 
-    // Sort lessons by lesson_order (if available) or fall back to week/day parsing
+    // Sort lessons by lesson_order (if available) or fall back to week/day parsing or class_date
     const sortedLessons = [...lessons].sort((a, b) => {
       // Prefer lesson_order if both have it
       const orderA = a.lesson_order ?? a.properties?.lesson_order;
@@ -27,7 +32,14 @@ export default function PlanMonthModal({
         return orderA - orderB;
       }
 
-      // Fall back to week/day parsing
+      // For English classes, sort by class_date
+      if (isEnglish) {
+        const dateA = a.class_date ? new Date(a.class_date) : new Date(0);
+        const dateB = b.class_date ? new Date(b.class_date) : new Date(0);
+        return dateA - dateB;
+      }
+
+      // Fall back to week/day parsing for devotions
       const weekA = parseInt((a.week_lesson || '').match(/\d+/)?.[0] || '0');
       const weekB = parseInt((b.week_lesson || '').match(/\d+/)?.[0] || '0');
       if (weekA !== weekB) return weekA - weekB;
@@ -37,23 +49,31 @@ export default function PlanMonthModal({
       return dayA - dayB;
     });
 
-    // Find last completed lesson (has last_taught date) - get the one with highest order
+    // Find last completed lesson - get the one with highest order
     let lastCompletedIndex = -1;
     sortedLessons.forEach((lesson, idx) => {
-      if (lesson.last_taught) {
-        lastCompletedIndex = idx;
+      if (isEnglish) {
+        // English: Complete status means done
+        if (lesson.class_status === 'Complete') {
+          lastCompletedIndex = idx;
+        }
+      } else {
+        // Devotions: has last_taught date
+        if (lesson.last_taught) {
+          lastCompletedIndex = idx;
+        }
       }
     });
 
     const lastCompleted = lastCompletedIndex >= 0 ? sortedLessons[lastCompletedIndex] : null;
     const nextLesson = sortedLessons[lastCompletedIndex + 1] || sortedLessons[0];
 
-    // Count lessons without scheduled_date after the last completed
+    // Count lessons without scheduled date after the last completed
     const upcomingCount = sortedLessons.slice(lastCompletedIndex + 1)
-      .filter(l => !l.scheduled_date).length;
+      .filter(l => isEnglish ? !l.class_date : !l.scheduled_date).length;
 
     return { lastCompleted, nextLesson, upcomingCount };
-  }, [lessons]);
+  }, [lessons, isEnglish]);
 
   // Get configured days from active series
   const scheduledDays = useMemo(() => {
@@ -86,12 +106,14 @@ export default function PlanMonthModal({
     setError(null);
 
     try {
-      const result = await api.planDevotionsMonth();
+      const result = isEnglish
+        ? await api.planEnglishMonth()
+        : await api.planDevotionsMonth();
       onPlanComplete?.(result);
       onClose();
     } catch (err) {
       console.error('Failed to plan month:', err);
-      setError(err.message || 'Failed to schedule lessons. Please try again.');
+      setError(err.message || `Failed to schedule ${isEnglish ? 'classes' : 'lessons'}. Please try again.`);
     }
 
     setIsPlanning(false);
@@ -116,7 +138,7 @@ export default function PlanMonthModal({
           <h2 className="text-xl font-semibold text-ink">Plan This Month</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-amber-100 rounded-lg transition-colors"
+            className={`p-1 hover:bg-${colorClass}-100 rounded-lg transition-colors`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -128,18 +150,18 @@ export default function PlanMonthModal({
         <div className="space-y-4">
           {/* Active Series Info */}
           {activeSeries ? (
-            <div className="bg-amber-50 rounded-xl p-4">
-              <div className="text-sm text-amber-700 font-medium mb-1">Active Series</div>
+            <div className={`bg-${colorClass}-50 rounded-xl p-4`}>
+              <div className={`text-sm text-${colorClass}-700 font-medium mb-1`}>Active Series</div>
               <div className="text-lg font-semibold text-ink">{activeSeries.title}</div>
               {scheduledDays.length > 0 && (
-                <div className="text-sm text-amber-600 mt-1">
+                <div className={`text-sm text-${colorClass}-600 mt-1`}>
                   Days: {scheduledDays.map(d => dayNames[d].substring(0, 3)).join(', ')}
                 </div>
               )}
             </div>
           ) : (
-            <div className="bg-amber-50 rounded-xl p-4 text-amber-700">
-              No active series found. Please configure an active devotion series.
+            <div className={`bg-${colorClass}-50 rounded-xl p-4 text-${colorClass}-700`}>
+              No active series found. Please configure an active {isEnglish ? 'English class' : 'devotion'} series.
             </div>
           )}
 
@@ -148,10 +170,13 @@ export default function PlanMonthModal({
             <div className="bg-white/50 rounded-xl p-4">
               <div className="text-sm text-ink/50 mb-1">Last Completed</div>
               <div className="font-medium text-ink">
-                {planInfo.lastCompleted.week_lesson}{planInfo.lastCompleted.day ? ` - ${planInfo.lastCompleted.day}` : ''}
+                {isEnglish
+                  ? planInfo.lastCompleted.title
+                  : `${planInfo.lastCompleted.week_lesson}${planInfo.lastCompleted.day ? ` - ${planInfo.lastCompleted.day}` : ''}`
+                }
               </div>
               <div className="text-sm text-ink/60">
-                {new Date(planInfo.lastCompleted.last_taught).toLocaleDateString()}
+                {new Date(isEnglish ? planInfo.lastCompleted.class_date : planInfo.lastCompleted.last_taught).toLocaleDateString()}
               </div>
             </div>
           )}
@@ -159,13 +184,16 @@ export default function PlanMonthModal({
           {/* Next Lesson */}
           {planInfo.nextLesson && (
             <div className="bg-white/50 rounded-xl p-4">
-              <div className="text-sm text-ink/50 mb-1">Next Lesson to Schedule</div>
+              <div className="text-sm text-ink/50 mb-1">Next {isEnglish ? 'Class' : 'Lesson'} to Schedule</div>
               <div className="font-medium text-ink">
-                {planInfo.nextLesson.week_lesson}{planInfo.nextLesson.day ? ` - ${planInfo.nextLesson.day}` : ''}
+                {isEnglish
+                  ? planInfo.nextLesson.title
+                  : `${planInfo.nextLesson.week_lesson}${planInfo.nextLesson.day ? ` - ${planInfo.nextLesson.day}` : ''}`
+                }
               </div>
               {planInfo.upcomingCount > 0 && (
-                <div className="text-sm text-amber-600 mt-1">
-                  {planInfo.upcomingCount} lessons will be scheduled
+                <div className={`text-sm text-${colorClass}-600 mt-1`}>
+                  {planInfo.upcomingCount} {isEnglish ? 'classes' : 'lessons'} will be scheduled
                 </div>
               )}
             </div>

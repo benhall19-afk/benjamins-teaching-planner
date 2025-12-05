@@ -206,6 +206,64 @@ export async function cascadeRescheduleDevotions(fromLessonId, newDate) {
 }
 
 // ============================================
+// ENGLISH CLASS API
+// ============================================
+
+export async function fetchEnglishSeries() {
+  const response = await fetch(`${API_BASE}/english/series`);
+  return handleResponse(response);
+}
+
+export async function fetchEnglishClasses() {
+  const response = await fetch(`${API_BASE}/english/classes`);
+  return handleResponse(response);
+}
+
+export async function addEnglishSeries(title, startDate = null, endDate = null) {
+  const response = await fetch(`${API_BASE}/english/series`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, startDate, endDate })
+  });
+  return handleResponse(response);
+}
+
+export async function addEnglishClass(title, classDate = null, seriesId = null, notes = null) {
+  const response = await fetch(`${API_BASE}/english/classes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, classDate, seriesId, notes })
+  });
+  return handleResponse(response);
+}
+
+export async function updateEnglishClass(id, updates) {
+  const response = await fetch(`${API_BASE}/english/classes/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
+  });
+  return handleResponse(response);
+}
+
+export async function planEnglishMonth() {
+  const response = await fetch(`${API_BASE}/english/plan-month`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  return handleResponse(response);
+}
+
+export async function cascadeRescheduleEnglish(fromClassId, newDate) {
+  const response = await fetch(`${API_BASE}/english/cascade-reschedule`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fromClassId, newDate })
+  });
+  return handleResponse(response);
+}
+
+// ============================================
 // HEALTH CHECK
 // ============================================
 

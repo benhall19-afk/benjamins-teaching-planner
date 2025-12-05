@@ -1,16 +1,20 @@
 import React from 'react';
-import { isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle } from '../viewConfig';
+import { isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle, isEnglishClassPrepared, getEnglishClassDisplayTitle } from '../viewConfig';
 
 export default function EventCard({ event, source, onClick, compact = false }) {
   const isPrepared = source === 'sermon'
     ? isSermonPrepared(event)
-    : isDevotionPrepared(event);
+    : source === 'devotion'
+    ? isDevotionPrepared(event)
+    : isEnglishClassPrepared(event);
 
   const displayTitle = source === 'sermon'
     ? (event.title || 'Untitled')
-    : getDevotionDisplayTitle(event);
+    : source === 'devotion'
+    ? getDevotionDisplayTitle(event)
+    : getEnglishClassDisplayTitle(event);
 
-  const colorClass = source === 'sermon' ? 'event-card-sage' : 'event-card-amber';
+  const colorClass = source === 'sermon' ? 'event-card-sage' : source === 'devotion' ? 'event-card-amber' : 'event-card-purple';
 
   if (compact) {
     return (
@@ -73,6 +77,16 @@ export default function EventCard({ event, source, onClick, compact = false }) {
         </>
       )}
 
+      {source === 'english' && (
+        <>
+          {event.series_title && (
+            <div className="text-xs text-ink/60 mt-0.5 truncate">
+              {event.series_title}
+            </div>
+          )}
+        </>
+      )}
+
       {/* Status Badge */}
       <div className="mt-1.5 flex items-center gap-1.5">
         {source === 'sermon' && event.status && (
@@ -92,6 +106,22 @@ export default function EventCard({ event, source, onClick, compact = false }) {
         {source === 'devotion' && event.last_taught && (
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
             Completed
+          </span>
+        )}
+
+        {source === 'english' && event.class_status && (
+          <span className={`
+            text-[10px] px-1.5 py-0.5 rounded-full
+            ${event.class_status === 'Complete'
+              ? 'bg-purple-100 text-purple-700'
+              : event.class_status === 'Prepared'
+              ? 'bg-purple-100 text-purple-700'
+              : event.class_status === 'Cancelled Class'
+              ? 'bg-slate-100 text-slate-600'
+              : 'bg-purple-50 text-purple-600'
+            }
+          `}>
+            {event.class_status}
           </span>
         )}
       </div>
