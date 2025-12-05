@@ -585,6 +585,8 @@ export default function App() {
   const [editingEnglishClass, setEditingEnglishClass] = useState(null);
   const [showAddEnglishModal, setShowAddEnglishModal] = useState(false);
   const [addEnglishDate, setAddEnglishDate] = useState(null);
+  const [showAddDevotionModal, setShowAddDevotionModal] = useState(false);
+  const [addDevotionDate, setAddDevotionDate] = useState(null);
 
   // Unscheduled sermons sidebar
   const [showUnscheduled, setShowUnscheduled] = useState(false);
@@ -1152,6 +1154,33 @@ export default function App() {
       showToast('English class added!', 'success');
     } catch (err) {
       showToast('Failed to add class: ' + err.message, 'error');
+    }
+    setIsSaving(false);
+  };
+
+  const handleAddDevotion = async (newDevotion) => {
+    setIsSaving(true);
+    try {
+      const result = await api.addDevotionLesson(
+        newDevotion.title,
+        newDevotion.week_lesson,
+        newDevotion.day,
+        newDevotion.scheduled_date,
+        activeDevotionSeries?.id || null
+      );
+
+      // Add to local state
+      const addedLesson = {
+        ...newDevotion,
+        id: result.result?.id || `temp_${Date.now()}`,
+        prepared_to_teach: false,
+        series_title: activeDevotionSeries?.title
+      };
+      setDevotionLessons(prev => [...prev, addedLesson]);
+      setShowAddDevotionModal(false);
+      showToast('Devotion lesson added!', 'success');
+    } catch (err) {
+      showToast('Failed to add lesson: ' + err.message, 'error');
     }
     setIsSaving(false);
   };
@@ -1882,12 +1911,15 @@ export default function App() {
                                     if (currentView === 'english') {
                                       setAddEnglishDate(dateStr);
                                       setShowAddEnglishModal(true);
+                                    } else if (currentView === 'devotions') {
+                                      setAddDevotionDate(dateStr);
+                                      setShowAddDevotionModal(true);
                                     } else {
                                       setAddDate(dateStr);
                                       setShowAddModal(true);
                                     }
                                   }}
-                                  className={`w-5 h-5 hidden sm:flex items-center justify-center ${currentView === 'english' ? 'text-purple-600 hover:bg-purple/20' : 'text-sage-600 hover:bg-sage/20'} rounded-full transition-all text-sm opacity-0 group-hover:opacity-100`}
+                                  className={`w-5 h-5 hidden sm:flex items-center justify-center ${currentView === 'english' ? 'text-purple-600 hover:bg-purple/20' : currentView === 'devotions' ? 'text-amber-600 hover:bg-amber/20' : 'text-sage-600 hover:bg-sage/20'} rounded-full transition-all text-sm opacity-0 group-hover:opacity-100`}
                                 >
                                   +
                                 </button>
@@ -2549,6 +2581,20 @@ export default function App() {
         </Modal>
       )}
 
+      {/* Add Devotion Lesson Modal */}
+      {showAddDevotionModal && (
+        <Modal onClose={() => setShowAddDevotionModal(false)}>
+          <h3 className="font-medium uppercase tracking-wider text-xs text-amber-600 mb-4">Add Devotion Lesson</h3>
+          <AddDevotionForm
+            initialDate={addDevotionDate}
+            onSave={handleAddDevotion}
+            onCancel={() => setShowAddDevotionModal(false)}
+            isSaving={isSaving}
+            activeSeries={activeDevotionSeries}
+          />
+        </Modal>
+      )}
+
       {/* Add Entry Modal */}
       {showAddModal && (
         <Modal onClose={() => setShowAddModal(false)}>
@@ -2961,6 +3007,86 @@ function AddEnglishClassForm({ initialDate, onSave, onCancel, isSaving, activeSe
           className="flex-1 px-4 py-2.5 bg-purple-500 text-white rounded-full text-sm font-medium hover:bg-purple-600 transition-colors disabled:opacity-50"
         >
           {isSaving ? 'Adding...' : 'Add Class'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AddDevotionForm({ initialDate, onSave, onCancel, isSaving, activeSeries }) {
+  const [entry, setEntry] = useState({
+    title: '',
+    week_lesson: '',
+    day: '',
+    scheduled_date: initialDate || ''
+  });
+
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Lesson Title</label>
+        <input
+          type="text"
+          value={entry.title}
+          onChange={(e) => setEntry(prev => ({ ...prev, title: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+          placeholder="Lesson title..."
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Week</label>
+          <input
+            type="text"
+            value={entry.week_lesson}
+            onChange={(e) => setEntry(prev => ({ ...prev, week_lesson: e.target.value }))}
+            className="w-full input-glass text-sm sm:text-base"
+            placeholder="e.g., Week 1"
+          />
+        </div>
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Day</label>
+          <input
+            type="text"
+            value={entry.day}
+            onChange={(e) => setEntry(prev => ({ ...prev, day: e.target.value }))}
+            className="w-full input-glass text-sm sm:text-base"
+            placeholder="e.g., Day 1"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Scheduled Date</label>
+        <input
+          type="date"
+          value={entry.scheduled_date}
+          onChange={(e) => setEntry(prev => ({ ...prev, scheduled_date: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+        />
+      </div>
+
+      {activeSeries && (
+        <div className="bg-amber-50 rounded-xl p-3">
+          <div className="text-xs text-amber-600 mb-1">Active Series</div>
+          <div className="text-sm font-medium text-ink">{activeSeries.title}</div>
+        </div>
+      )}
+
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 px-4 py-2.5 btn-glass text-sm"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onSave(entry)}
+          disabled={isSaving || !entry.title}
+          className="flex-1 px-4 py-2.5 bg-amber-500 text-white rounded-full text-sm font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
+        >
+          {isSaving ? 'Adding...' : 'Add Lesson'}
         </button>
       </div>
     </div>

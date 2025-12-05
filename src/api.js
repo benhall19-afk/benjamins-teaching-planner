@@ -188,6 +188,15 @@ export async function updateDevotionLesson(id, updates) {
   return handleResponse(response);
 }
 
+export async function addDevotionLesson(title, weekLesson = null, day = null, scheduledDate = null, seriesId = null) {
+  const response = await fetch(`${API_BASE}/devotions/lessons`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, weekLesson, day, scheduledDate, seriesId })
+  });
+  return handleResponse(response);
+}
+
 export async function planDevotionsMonth() {
   const response = await fetch(`${API_BASE}/devotions/plan-month`, {
     method: 'POST',

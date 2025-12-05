@@ -1193,6 +1193,40 @@ app.put('/api/devotions/lessons/:id', async (req, res) => {
   }
 });
 
+// Add a new devotion lesson
+app.post('/api/devotions/lessons', async (req, res) => {
+  try {
+    const { title, weekLesson, day, scheduledDate, seriesId } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const properties = {
+      prepared_to_teach: false
+    };
+    if (weekLesson) properties.week_lesson = weekLesson;
+    if (day) properties.day = day;
+    if (scheduledDate) properties.scheduled_date = scheduledDate;
+    if (seriesId) {
+      properties.devotions_series = {
+        relations: [{ blockId: seriesId }]
+      };
+    }
+
+    const result = await devotionsRequest(`/collections/${DEVOTIONS_COLLECTIONS.lessons}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ items: [{ title, properties }] })
+    });
+
+    invalidateCacheDevotions('lessons');
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to add devotion lesson:', error);
+    res.status(500).json({ error: 'Failed to add devotion lesson', details: error.message });
+  }
+});
+
 // Plan lessons for the next 30 days
 app.post('/api/devotions/plan-month', async (req, res) => {
   try {
