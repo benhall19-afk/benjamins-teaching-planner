@@ -273,6 +273,19 @@ export async function cascadeRescheduleEnglish(fromClassId, newDate) {
 }
 
 // ============================================
+// DAILY NOTES API
+// ============================================
+
+export async function planDay(date, items) {
+  const response = await fetch(`${API_BASE}/daily-notes/plan-day`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date, items })
+  });
+  return handleResponse(response);
+}
+
+// ============================================
 // HEALTH CHECK
 // ============================================
 

@@ -152,7 +152,7 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
     return series.filter(s => !s.startDate || !s.endDate);
   }, [series]);
 
-  // Count items per series (sermons or devotion lessons)
+  // Count items per series (sermons, devotion lessons, or English classes)
   const itemCountBySeries = useMemo(() => {
     if (isDevotionView) {
       // For devotions, count from the series data directly (already computed)
@@ -161,6 +161,16 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
           acc[s.id] = {
             total: s.lessonCount || 0,
             complete: s.completedCount || 0,
+            bufferDays: s.bufferDays,
+            items: []
+          };
+        }
+        // For English series, use prepared/assigned counts
+        if (s.isEnglishSeries) {
+          acc[s.id] = {
+            prepared: s.preparedCount || 0,
+            assigned: s.assignedCount || 0,
+            total: s.classCount || 0,
             items: []
           };
         }
@@ -253,52 +263,156 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
       </div>
 
       {/* Series bars */}
-      <div className="relative min-h-16 space-y-2">
-        {seriesWithDates.map(s => {
-          const startPos = getPositionForDate(s.startDate);
-          const endPos = getPositionForDate(s.endDate);
-          const counts = itemCountBySeries[s.id] || { total: 0, complete: 0, items: [] };
-          const totalSundays = getSundaysInRange(s.startDate, s.endDate);
+      <div className="relative min-h-16">
+        {(() => {
+          // Check if this is English view (all series have isEnglishSeries)
+          const isEnglishView = seriesWithDates.length > 0 && seriesWithDates.every(s => s.isEnglishSeries);
 
-          if (startPos === null || endPos === null || startPos >= 100 || endPos <= 0) {
-            return null;
+          if (isEnglishView) {
+            // For English series: single line with overlap detection
+            // Calculate positions for all series
+            const seriesPositions = seriesWithDates.map(s => {
+              const startPos = getPositionForDate(s.startDate);
+              const endPos = getPositionForDate(s.endDate);
+              return { series: s, startPos, endPos };
+            }).filter(sp => sp.startPos !== null && sp.endPos !== null && sp.startPos < 100 && sp.endPos > 0);
+
+            // Find overlapping regions
+            const findOverlaps = () => {
+              const overlaps = [];
+              for (let i = 0; i < seriesPositions.length; i++) {
+                for (let j = i + 1; j < seriesPositions.length; j++) {
+                  const a = seriesPositions[i];
+                  const b = seriesPositions[j];
+                  const overlapStart = Math.max(a.startPos, b.startPos);
+                  const overlapEnd = Math.min(a.endPos, b.endPos);
+                  if (overlapStart < overlapEnd) {
+                    overlaps.push({
+                      left: overlapStart,
+                      width: overlapEnd - overlapStart,
+                      series: [a.series, b.series]
+                    });
+                  }
+                }
+              }
+              return overlaps;
+            };
+
+            const overlaps = findOverlaps();
+
+            return (
+              <div className="relative h-7">
+                {/* Overlap indicators */}
+                {overlaps.map((overlap, idx) => (
+                  <div
+                    key={`overlap-${idx}`}
+                    className="absolute -top-5 text-center"
+                    style={{
+                      left: `${overlap.left}%`,
+                      width: `${overlap.width}%`
+                    }}
+                  >
+                    <span className="text-xs" title={`Overlap: ${overlap.series.map(s => s.title).join(' & ')}`}>
+                      ⚡
+                    </span>
+                  </div>
+                ))}
+
+                {/* Series bars on single line */}
+                {seriesPositions.map(({ series: s, startPos, endPos }) => {
+                  const counts = itemCountBySeries[s.id] || { prepared: 0, assigned: 0, total: 0, items: [] };
+                  const width = Math.max(5, endPos - startPos);
+                  const left = Math.max(0, startPos);
+
+                  // Check if this series overlaps with any other
+                  const hasOverlap = overlaps.some(o => o.series.some(os => os.id === s.id));
+
+                  // Use different colors based on overlap and selection
+                  const barColor = selectedSeries?.id === s.id
+                    ? 'bg-sage-600 ring-2 ring-sage-300'
+                    : hasOverlap
+                    ? 'bg-gradient-to-r from-sage-500 via-amber-500 to-sage-500 hover:from-sage-600 hover:via-amber-600 hover:to-sage-600'
+                    : 'bg-sage-500 hover:bg-sage-600';
+
+                  return (
+                    <div
+                      key={s.id}
+                      className="series-bar absolute h-7 cursor-pointer group"
+                      style={{
+                        left: `${left}%`,
+                        width: `${Math.min(width, 100 - left)}%`
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedSeries(selectedSeries?.id === s.id ? null : s);
+                      }}
+                    >
+                      <div
+                        className={`absolute inset-0 rounded-full px-2 py-1 text-white text-xs flex items-center justify-between overflow-hidden transition-all ${barColor}`}
+                      >
+                        <span className="truncate font-medium">{s.title}</span>
+                        <span className="text-white/80 whitespace-nowrap ml-1">
+                          ({counts.prepared}/{counts.assigned})
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
           }
 
-          const width = Math.max(5, endPos - startPos);
-          const left = Math.max(0, startPos);
-
-          const isDevSeries = s.isDevotionSeries;
-          const barColor = isDevSeries
-            ? (selectedSeries?.id === s.id ? 'bg-amber-600 ring-2 ring-amber-300' : 'bg-amber-500 hover:bg-amber-600')
-            : (selectedSeries?.id === s.id ? 'bg-sage-600 ring-2 ring-sage-300' : 'bg-sage-500 hover:bg-sage-600');
-
+          // Default behavior for devotions and sermons (multiple rows)
           return (
-            <div
-              key={s.id}
-              className="series-bar relative h-7 cursor-pointer group"
-              style={{
-                marginLeft: `${left}%`,
-                width: `${Math.min(width, 100 - left)}%`
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedSeries(selectedSeries?.id === s.id ? null : s);
-              }}
-            >
-              <div
-                className={`absolute inset-0 rounded-full px-2 py-1 text-white text-xs flex items-center justify-between overflow-hidden transition-all ${barColor}`}
-              >
-                <span className="truncate font-medium">{s.title}</span>
-                <span className="text-white/80 whitespace-nowrap ml-1">
-                  {isDevSeries
-                    ? `(${counts.complete}/${counts.total})`
-                    : `(${counts.total}/${totalSundays})`
-                  }
-                </span>
-              </div>
+            <div className="space-y-2">
+              {seriesWithDates.map(s => {
+                const startPos = getPositionForDate(s.startDate);
+                const endPos = getPositionForDate(s.endDate);
+                const counts = itemCountBySeries[s.id] || { total: 0, complete: 0, items: [] };
+                const totalSundays = getSundaysInRange(s.startDate, s.endDate);
+
+                if (startPos === null || endPos === null || startPos >= 100 || endPos <= 0) {
+                  return null;
+                }
+
+                const width = Math.max(5, endPos - startPos);
+                const left = Math.max(0, startPos);
+
+                const isDevSeries = s.isDevotionSeries;
+                const barColor = isDevSeries
+                  ? (selectedSeries?.id === s.id ? 'bg-amber-600 ring-2 ring-amber-300' : 'bg-amber-500 hover:bg-amber-600')
+                  : (selectedSeries?.id === s.id ? 'bg-sage-600 ring-2 ring-sage-300' : 'bg-sage-500 hover:bg-sage-600');
+
+                return (
+                  <div
+                    key={s.id}
+                    className="series-bar relative h-7 cursor-pointer group"
+                    style={{
+                      marginLeft: `${left}%`,
+                      width: `${Math.min(width, 100 - left)}%`
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedSeries(selectedSeries?.id === s.id ? null : s);
+                    }}
+                  >
+                    <div
+                      className={`absolute inset-0 rounded-full px-2 py-1 text-white text-xs flex items-center justify-between overflow-hidden transition-all ${barColor}`}
+                    >
+                      <span className="truncate font-medium">{s.title}</span>
+                      <span className="text-white/80 whitespace-nowrap ml-1">
+                        {isDevSeries
+                          ? `(${counts.complete}/${counts.total})${counts.bufferDays !== null && counts.bufferDays !== undefined ? ` ${counts.bufferDays >= 0 ? '+' : ''}${counts.bufferDays}` : ''}`
+                          : `(${counts.total}/${totalSundays})`
+                        }
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
-        })}
+        })()}
 
         {seriesWithDates.length === 0 && (
           <div className="text-center text-ink/40 text-sm py-4">
@@ -329,15 +443,27 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
 
           {/* Progress */}
           {(() => {
-            const counts = itemCountBySeries[selectedSeries.id] || { total: 0, complete: 0, items: [] };
+            const counts = itemCountBySeries[selectedSeries.id] || { total: 0, complete: 0, prepared: 0, assigned: 0, items: [] };
             const isDevSeries = selectedSeries.isDevotionSeries;
+            const isEngSeries = selectedSeries.isEnglishSeries;
             const totalSlots = isDevSeries ? counts.total : getSundaysInRange(selectedSeries.startDate, selectedSeries.endDate);
-            const progress = counts.total > 0 ? Math.round((counts.complete / counts.total) * 100) : 0;
+
+            // Calculate progress based on series type
+            let progress = 0;
+            if (isEngSeries) {
+              progress = counts.assigned > 0 ? Math.round((counts.prepared / counts.assigned) * 100) : 0;
+            } else if (isDevSeries) {
+              progress = counts.total > 0 ? Math.round((counts.complete / counts.total) * 100) : 0;
+            } else {
+              progress = totalSlots > 0 ? Math.round((counts.total / totalSlots) * 100) : 0;
+            }
 
             return (
               <>
                 <div className="text-sm text-ink/80 mb-2">
-                  {isDevSeries
+                  {isEngSeries
+                    ? `${counts.prepared} of ${counts.assigned} classes prepared`
+                    : isDevSeries
                     ? `${counts.complete} of ${counts.total} lessons completed`
                     : `${counts.total} of ${totalSlots} Sundays planned`
                   }
@@ -349,8 +475,8 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
                   />
                 </div>
 
-                {/* Item list (sermons only, devotions don't have detailed list here) */}
-                {!isDevSeries && counts.items.length > 0 && (
+                {/* Item list (sermons only, devotions and English don't have detailed list here) */}
+                {!isDevSeries && !isEngSeries && counts.items.length > 0 && (
                   <div className="max-h-32 overflow-y-auto space-y-1 mb-3">
                     {counts.items.slice(0, 5).map(sermon => (
                       <div key={sermon.id} className="text-xs flex items-center gap-2">
@@ -815,12 +941,56 @@ export default function App() {
       .filter(s => s.title && s.title.trim() !== '')
       .map(s => {
         // Calculate end date based on lessons if not explicitly set
-        const seriesLessons = devotionLessons.filter(l => l.series_id === s.id || l.properties?.series_id === s.id);
+        // If lessons have series_id, filter by it; otherwise associate all lessons with this series
+        const seriesLessons = devotionLessons.filter(l => {
+          const lessonSeriesId = l.series_id || l.properties?.series_id || l.properties?.devotions_series?.relations?.[0]?.blockId;
+          // If lesson has a series_id, match it; if not, assume all lessons belong to this series (single-series case)
+          return lessonSeriesId ? lessonSeriesId === s.id : true;
+        });
         const scheduledDates = seriesLessons
           .map(l => l.scheduled_date)
           .filter(Boolean)
           .sort();
         const lastScheduledDate = scheduledDates.length > 0 ? scheduledDates[scheduledDates.length - 1] : null;
+
+        const completedCount = seriesLessons.filter(l => l.last_taught).length;
+        const remainingLessons = seriesLessons.length - completedCount;
+        // Use series_completion_date (scheduled end) to calculate buffer days
+        const endDate = s.series_completion_date || s.properties?.series_completion_date;
+        const daysOfWeek = s.what_days_of_the_week || s.properties?.what_days_of_the_week || [];
+
+        // Calculate buffer days: count how many valid teaching days exist from today to end date, minus remaining lessons
+        let bufferDays = null;
+        if (endDate && remainingLessons >= 0) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const end = new Date(endDate);
+          end.setHours(0, 0, 0, 0);
+
+          if (end >= today) {
+            // Map day names to day numbers (0=Sunday, 1=Monday, etc.)
+            const dayNameToNumber = {
+              'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3,
+              'thursday': 4, 'friday': 5, 'saturday': 6
+            };
+            const daysArray = Array.isArray(daysOfWeek) ? daysOfWeek : (daysOfWeek ? daysOfWeek.split(/[,\s]+/) : []);
+            const validDays = daysArray
+              .map(d => dayNameToNumber[d.toLowerCase().trim()])
+              .filter(d => d !== undefined);
+
+            // Count valid teaching days from today to end date (inclusive)
+            let availableDays = 0;
+            const current = new Date(today);
+            while (current <= end) {
+              if (validDays.length === 0 || validDays.includes(current.getDay())) {
+                availableDays++;
+              }
+              current.setDate(current.getDate() + 1);
+            }
+
+            bufferDays = availableDays - remainingLessons;
+          }
+        }
 
         return {
           id: s.id,
@@ -829,7 +999,9 @@ export default function App() {
           endDate: s.series_completion_date || s.properties?.series_completion_date || lastScheduledDate || s.series_start_date || s.properties?.series_start_date,
           isDevotionSeries: true,
           lessonCount: seriesLessons.length,
-          completedCount: seriesLessons.filter(l => l.last_taught).length
+          completedCount,
+          remainingLessons,
+          bufferDays
         };
       });
   }, [devotionSeries, devotionLessons]);
@@ -839,22 +1011,38 @@ export default function App() {
     return englishSeries
       .filter(s => s.title && s.title.trim() !== '')
       .map(s => {
-        // Calculate end date based on classes if not explicitly set
+        // Get classes assigned to this series
         const seriesClasses = englishClasses.filter(c => c.series_id === s.id);
-        const scheduledDates = seriesClasses
-          .map(c => c.class_date)
-          .filter(Boolean)
-          .sort();
-        const lastScheduledDate = scheduledDates.length > 0 ? scheduledDates[scheduledDates.length - 1] : null;
+
+        // Get the series date range
+        const startDate = s.series_start_date || s.properties?.series_start_date;
+        const endDate = s.series_completion_date || s.properties?.series_completion_date;
+
+        // Filter to only classes within the series timeline dates
+        const classesInTimeline = seriesClasses.filter(c => {
+          if (!c.class_date || !startDate || !endDate) return true; // Include if we can't filter
+          const classDate = c.class_date.split('T')[0];
+          return classDate >= startDate && classDate <= endDate;
+        });
+
+        // Count prepared classes (those with status 'prepared' or 'complete')
+        const preparedCount = classesInTimeline.filter(c => {
+          const status = c.class_status?.toLowerCase() || '';
+          return status === 'prepared' || status === 'complete';
+        }).length;
+
+        // Count assigned classes (those with a class_date set)
+        const assignedCount = classesInTimeline.filter(c => c.class_date).length;
 
         return {
           id: s.id,
           title: s.title,
-          startDate: s.series_start_date || s.properties?.series_start_date,
-          endDate: s.series_completion_date || s.properties?.series_completion_date || lastScheduledDate || s.series_start_date || s.properties?.series_start_date,
+          startDate: startDate,
+          endDate: endDate,
           isEnglishSeries: true,
-          classCount: seriesClasses.length,
-          completedCount: seriesClasses.filter(c => c.class_status?.toLowerCase() === 'complete').length
+          preparedCount: preparedCount,
+          assignedCount: assignedCount,
+          classCount: seriesClasses.length
         };
       });
   }, [englishSeries, englishClasses]);
@@ -1716,6 +1904,28 @@ export default function App() {
                   onDayDrop={handleDrop}
                   draggedEvent={draggedEvent}
                   getHolidaysForDate={getHolidaysForDate}
+                  onPlanDay={async (dateKey, events) => {
+                    try {
+                      // Transform events into the format expected by the API
+                      const items = events.map(event => ({
+                        type: event.source,
+                        title: event.displayTitle,
+                        subtitle: event.source === 'sermon'
+                          ? (event.preacher || event.primary_text || '')
+                          : event.source === 'devotion'
+                          ? (event.day ? `Day ${event.day}` : '')
+                          : (event.series_title || ''),
+                        id: event.id,
+                        craftUrl: event.id ? `craftdocs://open?blockId=${event.id}&spaceId=${import.meta.env.VITE_CRAFT_SPACE_ID}` : null
+                      }));
+
+                      await api.planDay(dateKey, items);
+                      showToast(`Added ${items.length} items to Daily Notes!`, 'success');
+                    } catch (error) {
+                      console.error('Failed to plan day:', error);
+                      showToast('Failed to add items to Daily Notes', 'error');
+                    }
+                  }}
                 />
               </div>
             ) : (
@@ -1852,7 +2062,7 @@ export default function App() {
                   return (
                     <div key={weekIndex} className={`flex ${hasWeekHoliday ? `week-row-holiday week-row-holiday--${primaryWeekHoliday.color}` : ''}`}>
                       {/* Week Number Semi-Circle Indicator */}
-                      <div className={`week-indicator ${isCurrentWeek ? 'current' : ''}`}>
+                      <div className="week-indicator">
                         {hasWeekHoliday && (
                           <span className="week-indicator-holiday" title={weekHolidays.map(h => h.name).join(', ')}>
                             {weekHolidays.length > 1 ? (
@@ -1906,7 +2116,7 @@ export default function App() {
                                   }
                                 }
                               }}
-                              className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer border-sage/20 hover:border-sage/50 ${isCurrentWeek ? 'bg-sage-100/70' : 'bg-white/50'} ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''} ${hasDayHoliday ? `calendar-day-holiday calendar-day-holiday--${primaryDayHoliday.color}` : ''}`}
+                              className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer ${isToday ? 'border-sage bg-sage-100/70' : 'border-sage/20 bg-white/50'} hover:border-sage/50 ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''} ${hasDayHoliday ? `calendar-day-holiday calendar-day-holiday--${primaryDayHoliday.color}` : ''}`}
                             >
                               <div className="day-header flex items-center justify-between mb-0.5 sm:mb-1">
                                 <span className="flex items-center gap-0.5">

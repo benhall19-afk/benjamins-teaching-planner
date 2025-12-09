@@ -66,6 +66,16 @@ const ENGLISH_COLLECTIONS = {
 };
 
 // ============================================
+// DAILY NOTES API CONFIGURATION
+// ============================================
+
+const DAILY_NOTES_API_URL = process.env.DAILY_NOTES_API_URL || '';
+const DAILY_NOTES_API_KEY = process.env.DAILY_NOTES_API_KEY || '';
+
+// Daily Notes collection ID (discovered from API)
+const DAILY_NOTES_COLLECTION_ID = 'BC155F15-CA55-4510-B545-B3BD1469A8CA';
+
+// ============================================
 // IN-MEMORY CACHE WITH TTL
 // ============================================
 
@@ -276,6 +286,32 @@ async function englishRequest(endpoint, options = {}) {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`English Class API error (${response.status}): ${errorText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Make authenticated request to Daily Notes Craft API
+ */
+async function dailyNotesRequest(endpoint, options = {}) {
+  if (!DAILY_NOTES_API_URL || !DAILY_NOTES_API_KEY) {
+    throw new Error('Daily Notes API not configured');
+  }
+
+  const url = `${DAILY_NOTES_API_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${DAILY_NOTES_API_KEY}`,
+      ...options.headers
+    }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Daily Notes API error (${response.status}): ${errorText}`);
   }
 
   return response.json();
@@ -1942,6 +1978,128 @@ JSON:
   } catch (error) {
     console.error('Analyze sermon error:', error);
     res.status(500).json({ error: 'Failed to analyze sermon', details: error.message });
+  }
+});
+
+// ============================================
+// DAILY NOTES ENDPOINTS
+// ============================================
+
+// Plan out a day - adds items directly to today's Daily Note in Craft
+// The Daily Notes API link is connected to today's daily note document
+app.post('/api/daily-notes/plan-day', async (req, res) => {
+  try {
+    const { date, items } = req.body;
+
+    if (!date) {
+      return res.status(400).json({ error: 'Date is required' });
+    }
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({ error: 'No items to add' });
+    }
+
+    // Build the content blocks for Craft using the /blocks endpoint format
+    // Clean, simple layout with document titles as direct links
+    const blocks = [];
+
+    // Add header
+    blocks.push({
+      type: 'text',
+      markdown: '## Documents for Today'
+    });
+
+    // Group items by type
+    const devotions = items.filter(i => i.type === 'devotion');
+    const englishClasses = items.filter(i => i.type === 'english');
+    const sermons = items.filter(i => i.type === 'sermon');
+    const other = items.filter(i => !['devotion', 'english', 'sermon'].includes(i.type));
+
+    // Add devotions - each as bullet "🙏 Family Devotions - [Title as link]"
+    for (const item of devotions) {
+      if (item.craftUrl) {
+        blocks.push({
+          type: 'text',
+          markdown: `- 🙏 Family Devotions - [${item.title}](${item.craftUrl})`
+        });
+      } else {
+        blocks.push({
+          type: 'text',
+          markdown: `- 🙏 Family Devotions - ${item.title}`
+        });
+      }
+    }
+
+    // Add English classes - each as bullet "📚 English Class - [Title as link]"
+    for (const item of englishClasses) {
+      if (item.craftUrl) {
+        blocks.push({
+          type: 'text',
+          markdown: `- 📚 English Class - [${item.title}](${item.craftUrl})`
+        });
+      } else {
+        blocks.push({
+          type: 'text',
+          markdown: `- 📚 English Class - ${item.title}`
+        });
+      }
+    }
+
+    // Add sermons - each as bullet "⛪ Sermon - [Title as link]"
+    for (const item of sermons) {
+      if (item.craftUrl) {
+        blocks.push({
+          type: 'text',
+          markdown: `- ⛪ Sermon - [${item.title}](${item.craftUrl})`
+        });
+      } else {
+        blocks.push({
+          type: 'text',
+          markdown: `- ⛪ Sermon - ${item.title}`
+        });
+      }
+    }
+
+    // Add other items
+    for (const item of other) {
+      if (item.craftUrl) {
+        blocks.push({
+          type: 'text',
+          markdown: `- [${item.title}](${item.craftUrl})`
+        });
+      } else {
+        blocks.push({
+          type: 'text',
+          markdown: `- ${item.title}`
+        });
+      }
+    }
+
+    // Add a separator at the end
+    blocks.push({
+      type: 'line'
+    });
+
+    // Add blocks directly to today's daily note using the /blocks endpoint
+    // The Daily Notes API link points to today's daily note document
+    const result = await dailyNotesRequest('/blocks', {
+      method: 'POST',
+      body: JSON.stringify({
+        blocks,
+        position: { position: 'end' }
+      })
+    });
+
+    console.log('Added blocks to Daily Notes:', result);
+
+    res.json({
+      success: true,
+      message: `Added ${items.length} items to today's Daily Note`,
+      blocksAdded: result.items?.length || blocks.length
+    });
+  } catch (error) {
+    console.error('Failed to plan day:', error);
+    res.status(500).json({ error: 'Failed to add items to Daily Notes', details: error.message });
   }
 });
 
