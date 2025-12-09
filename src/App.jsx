@@ -263,7 +263,7 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
       </div>
 
       {/* Series bars */}
-      <div className="relative min-h-8">
+      <div className="relative">
         {(() => {
           // Single line with overlap detection for ALL views
           // Calculate positions for all series
