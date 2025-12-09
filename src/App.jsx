@@ -265,130 +265,103 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
       {/* Series bars */}
       <div className="relative min-h-16">
         {(() => {
-          // Check if this is English view (all series have isEnglishSeries)
-          const isEnglishView = seriesWithDates.length > 0 && seriesWithDates.every(s => s.isEnglishSeries);
+          // Single line with overlap detection for ALL views
+          // Calculate positions for all series
+          const seriesPositions = seriesWithDates.map(s => {
+            const startPos = getPositionForDate(s.startDate);
+            const endPos = getPositionForDate(s.endDate);
+            return { series: s, startPos, endPos };
+          }).filter(sp => sp.startPos !== null && sp.endPos !== null && sp.startPos < 100 && sp.endPos > 0);
 
-          if (isEnglishView) {
-            // For English series: single line with overlap detection
-            // Calculate positions for all series
-            const seriesPositions = seriesWithDates.map(s => {
-              const startPos = getPositionForDate(s.startDate);
-              const endPos = getPositionForDate(s.endDate);
-              return { series: s, startPos, endPos };
-            }).filter(sp => sp.startPos !== null && sp.endPos !== null && sp.startPos < 100 && sp.endPos > 0);
-
-            // Find overlapping regions
-            const findOverlaps = () => {
-              const overlaps = [];
-              for (let i = 0; i < seriesPositions.length; i++) {
-                for (let j = i + 1; j < seriesPositions.length; j++) {
-                  const a = seriesPositions[i];
-                  const b = seriesPositions[j];
-                  const overlapStart = Math.max(a.startPos, b.startPos);
-                  const overlapEnd = Math.min(a.endPos, b.endPos);
-                  if (overlapStart < overlapEnd) {
-                    overlaps.push({
-                      left: overlapStart,
-                      width: overlapEnd - overlapStart,
-                      series: [a.series, b.series]
-                    });
-                  }
+          // Find overlapping regions
+          const findOverlaps = () => {
+            const overlaps = [];
+            for (let i = 0; i < seriesPositions.length; i++) {
+              for (let j = i + 1; j < seriesPositions.length; j++) {
+                const a = seriesPositions[i];
+                const b = seriesPositions[j];
+                const overlapStart = Math.max(a.startPos, b.startPos);
+                const overlapEnd = Math.min(a.endPos, b.endPos);
+                if (overlapStart < overlapEnd) {
+                  overlaps.push({
+                    left: overlapStart,
+                    width: overlapEnd - overlapStart,
+                    series: [a.series, b.series]
+                  });
                 }
               }
-              return overlaps;
-            };
+            }
+            return overlaps;
+          };
 
-            const overlaps = findOverlaps();
+          const overlaps = findOverlaps();
 
-            return (
-              <div className="relative h-7">
-                {/* Overlap indicators */}
-                {overlaps.map((overlap, idx) => (
-                  <div
-                    key={`overlap-${idx}`}
-                    className="absolute -top-5 text-center"
-                    style={{
-                      left: `${overlap.left}%`,
-                      width: `${overlap.width}%`
-                    }}
-                  >
-                    <span className="text-xs" title={`Overlap: ${overlap.series.map(s => s.title).join(' & ')}`}>
-                      ⚡
-                    </span>
-                  </div>
-                ))}
-
-                {/* Series bars on single line */}
-                {seriesPositions.map(({ series: s, startPos, endPos }) => {
-                  const counts = itemCountBySeries[s.id] || { prepared: 0, assigned: 0, total: 0, items: [] };
-                  const width = Math.max(5, endPos - startPos);
-                  const left = Math.max(0, startPos);
-
-                  // Check if this series overlaps with any other
-                  const hasOverlap = overlaps.some(o => o.series.some(os => os.id === s.id));
-
-                  // Use different colors based on overlap and selection
-                  const barColor = selectedSeries?.id === s.id
-                    ? 'bg-sage-600 ring-2 ring-sage-300'
-                    : hasOverlap
-                    ? 'bg-gradient-to-r from-sage-500 via-amber-500 to-sage-500 hover:from-sage-600 hover:via-amber-600 hover:to-sage-600'
-                    : 'bg-sage-500 hover:bg-sage-600';
-
-                  return (
-                    <div
-                      key={s.id}
-                      className="series-bar absolute h-7 cursor-pointer group"
-                      style={{
-                        left: `${left}%`,
-                        width: `${Math.min(width, 100 - left)}%`
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedSeries(selectedSeries?.id === s.id ? null : s);
-                      }}
-                    >
-                      <div
-                        className={`absolute inset-0 rounded-full px-2 py-1 text-white text-xs flex items-center justify-between overflow-hidden transition-all ${barColor}`}
-                      >
-                        <span className="truncate font-medium">{s.title}</span>
-                        <span className="text-white/80 whitespace-nowrap ml-1">
-                          ({counts.prepared}/{counts.assigned})
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          }
-
-          // Default behavior for devotions and sermons (multiple rows)
           return (
-            <div className="space-y-2">
-              {seriesWithDates.map(s => {
-                const startPos = getPositionForDate(s.startDate);
-                const endPos = getPositionForDate(s.endDate);
-                const counts = itemCountBySeries[s.id] || { total: 0, complete: 0, items: [] };
+            <div className="relative h-7">
+              {/* Overlap indicators */}
+              {overlaps.map((overlap, idx) => (
+                <div
+                  key={`overlap-${idx}`}
+                  className="absolute -top-5 text-center"
+                  style={{
+                    left: `${overlap.left}%`,
+                    width: `${overlap.width}%`
+                  }}
+                >
+                  <span className="text-xs" title={`Overlap: ${overlap.series.map(s => s.title).join(' & ')}`}>
+                    ⚡
+                  </span>
+                </div>
+              ))}
+
+              {/* Series bars on single line */}
+              {seriesPositions.map(({ series: s, startPos, endPos }) => {
+                const counts = itemCountBySeries[s.id] || { prepared: 0, assigned: 0, total: 0, complete: 0, items: [] };
                 const totalSundays = getSundaysInRange(s.startDate, s.endDate);
-
-                if (startPos === null || endPos === null || startPos >= 100 || endPos <= 0) {
-                  return null;
-                }
-
                 const width = Math.max(5, endPos - startPos);
                 const left = Math.max(0, startPos);
 
+                // Check if this series overlaps with any other
+                const hasOverlap = overlaps.some(o => o.series.some(os => os.id === s.id));
+
+                // Determine series type
                 const isDevSeries = s.isDevotionSeries;
-                const barColor = isDevSeries
-                  ? (selectedSeries?.id === s.id ? 'bg-amber-600 ring-2 ring-amber-300' : 'bg-amber-500 hover:bg-amber-600')
-                  : (selectedSeries?.id === s.id ? 'bg-sage-600 ring-2 ring-sage-300' : 'bg-sage-500 hover:bg-sage-600');
+                const isEngSeries = s.isEnglishSeries;
+
+                // Use different colors based on series type, overlap and selection
+                let barColor;
+                if (selectedSeries?.id === s.id) {
+                  barColor = isDevSeries ? 'bg-amber-600 ring-2 ring-amber-300' : 'bg-sage-600 ring-2 ring-sage-300';
+                } else if (hasOverlap) {
+                  barColor = isDevSeries
+                    ? 'bg-gradient-to-r from-amber-500 via-rose-500 to-amber-500 hover:from-amber-600 hover:via-rose-600 hover:to-amber-600'
+                    : 'bg-gradient-to-r from-sage-500 via-amber-500 to-sage-500 hover:from-sage-600 hover:via-amber-600 hover:to-sage-600';
+                } else {
+                  barColor = isDevSeries ? 'bg-amber-500 hover:bg-amber-600' : 'bg-sage-500 hover:bg-sage-600';
+                }
+
+                // Determine count display based on series type
+                let countDisplay;
+                if (isEngSeries) {
+                  // English: prepared/assigned
+                  countDisplay = `(${counts.prepared}/${counts.assigned})`;
+                } else if (isDevSeries) {
+                  // Devotions: complete/total with buffer days
+                  const bufferPart = counts.bufferDays !== null && counts.bufferDays !== undefined
+                    ? ` ${counts.bufferDays >= 0 ? '+' : ''}${counts.bufferDays}`
+                    : '';
+                  countDisplay = `(${counts.complete}/${counts.total})${bufferPart}`;
+                } else {
+                  // Sermons: total/totalSundays
+                  countDisplay = `(${counts.total}/${totalSundays})`;
+                }
 
                 return (
                   <div
                     key={s.id}
-                    className="series-bar relative h-7 cursor-pointer group"
+                    className="series-bar absolute h-7 cursor-pointer group"
                     style={{
-                      marginLeft: `${left}%`,
+                      left: `${left}%`,
                       width: `${Math.min(width, 100 - left)}%`
                     }}
                     onClick={(e) => {
@@ -401,10 +374,7 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
                     >
                       <span className="truncate font-medium">{s.title}</span>
                       <span className="text-white/80 whitespace-nowrap ml-1">
-                        {isDevSeries
-                          ? `(${counts.complete}/${counts.total})${counts.bufferDays !== null && counts.bufferDays !== undefined ? ` ${counts.bufferDays >= 0 ? '+' : ''}${counts.bufferDays}` : ''}`
-                          : `(${counts.total}/${totalSundays})`
-                        }
+                        {countDisplay}
                       </span>
                     </div>
                   </div>
