@@ -263,7 +263,7 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
       </div>
 
       {/* Series bars */}
-      <div className="relative min-h-16">
+      <div className="relative min-h-8">
         {(() => {
           // Single line with overlap detection for ALL views
           // Calculate positions for all series
@@ -329,15 +329,35 @@ function SeriesTimeline({ series, schedule, currentDate, onSeriesClick, onSeries
                 const isEngSeries = s.isEnglishSeries;
 
                 // Use different colors based on series type, overlap and selection
+                // Theme colors: Sermons = sage, Devotions = amber, English = purple
                 let barColor;
                 if (selectedSeries?.id === s.id) {
-                  barColor = isDevSeries ? 'bg-amber-600 ring-2 ring-amber-300' : 'bg-sage-600 ring-2 ring-sage-300';
+                  // Selected state
+                  if (isEngSeries) {
+                    barColor = 'bg-purple-600 ring-2 ring-purple-300';
+                  } else if (isDevSeries) {
+                    barColor = 'bg-amber-600 ring-2 ring-amber-300';
+                  } else {
+                    barColor = 'bg-sage-600 ring-2 ring-sage-300';
+                  }
                 } else if (hasOverlap) {
-                  barColor = isDevSeries
-                    ? 'bg-gradient-to-r from-amber-500 via-rose-500 to-amber-500 hover:from-amber-600 hover:via-rose-600 hover:to-amber-600'
-                    : 'bg-gradient-to-r from-sage-500 via-amber-500 to-sage-500 hover:from-sage-600 hover:via-amber-600 hover:to-sage-600';
+                  // Overlap state with gradient
+                  if (isEngSeries) {
+                    barColor = 'bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 hover:from-purple-600 hover:via-pink-600 hover:to-purple-600';
+                  } else if (isDevSeries) {
+                    barColor = 'bg-gradient-to-r from-amber-500 via-rose-500 to-amber-500 hover:from-amber-600 hover:via-rose-600 hover:to-amber-600';
+                  } else {
+                    barColor = 'bg-gradient-to-r from-sage-500 via-amber-500 to-sage-500 hover:from-sage-600 hover:via-amber-600 hover:to-sage-600';
+                  }
                 } else {
-                  barColor = isDevSeries ? 'bg-amber-500 hover:bg-amber-600' : 'bg-sage-500 hover:bg-sage-600';
+                  // Normal state
+                  if (isEngSeries) {
+                    barColor = 'bg-purple-500 hover:bg-purple-600';
+                  } else if (isDevSeries) {
+                    barColor = 'bg-amber-500 hover:bg-amber-600';
+                  } else {
+                    barColor = 'bg-sage-500 hover:bg-sage-600';
+                  }
                 }
 
                 // Determine count display based on series type
