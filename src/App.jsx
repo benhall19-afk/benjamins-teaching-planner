@@ -709,6 +709,7 @@ export default function App() {
   const [discipleContacts, setDiscipleContacts] = useState([]);
   const [familyContacts, setFamilyContacts] = useState([]);
   const [supportingPastorContacts, setSupportingPastorContacts] = useState([]);
+  const [spirituallyInterestedContacts, setSpirituallyInterestedContacts] = useState([]);
   const [spiritualLessons, setSpiritualLessons] = useState([]);
   const [relationshipsLoading, setRelationshipsLoading] = useState(false);
   const [selectedMeetup, setSelectedMeetup] = useState(null);
@@ -856,17 +857,19 @@ export default function App() {
     if (!forceRefresh && relationshipMeetups.length > 0) return; // Already loaded
     setRelationshipsLoading(true);
     try {
-      const [meetupsData, disciplesData, familyData, supportingPastorData, lessonsData] = await Promise.all([
+      const [meetupsData, disciplesData, familyData, supportingPastorData, spirituallyInterestedData, lessonsData] = await Promise.all([
         api.fetchRelationshipMeetups().catch((e) => { console.error('Failed to fetch meetups:', e); return []; }),
         api.fetchDiscipleContacts(forceRefresh).catch((e) => { console.error('Failed to fetch disciples:', e); return []; }),
         api.fetchFamilyContacts(forceRefresh).catch((e) => { console.error('Failed to fetch family:', e); return []; }),
         api.fetchSupportingPastorContacts(forceRefresh).catch((e) => { console.error('Failed to fetch supporting pastors:', e); return []; }),
+        api.fetchSpirituallyInterestedContacts(forceRefresh).catch((e) => { console.error('Failed to fetch spiritually interested:', e); return []; }),
         api.fetchSpiritualLessons().catch((e) => { console.error('Failed to fetch lessons:', e); return []; })
       ]);
       setRelationshipMeetups(meetupsData);
       setDiscipleContacts(disciplesData);
       setFamilyContacts(familyData);
       setSupportingPastorContacts(supportingPastorData);
+      setSpirituallyInterestedContacts(spirituallyInterestedData);
       setSpiritualLessons(lessonsData);
       if (forceRefresh) {
         showToast('Contacts refreshed!', 'success');
@@ -2122,6 +2125,7 @@ export default function App() {
             const sortedDisciples = sortByOldestContact(discipleContacts);
             const sortedFamily = sortByOldestContact(familyContacts);
             const sortedSupportingPastors = sortByOldestContact(supportingPastorContacts).slice(0, 5);
+            const sortedSpirituallyInterested = sortByOldestContact(spirituallyInterestedContacts);
 
             return (
               <div className="border-t border-navy/10">
@@ -2246,6 +2250,41 @@ export default function App() {
                       {sortedSupportingPastors.map(c => renderContactPill(c, 'supporting-pastor'))}
                       {supportingPastorContacts.length === 0 && !relationshipsLoading && (
                         <p className="text-xs text-ink/40 italic">No supporting pastor contacts found</p>
+                      )}
+                      {relationshipsLoading && (
+                        <p className="text-xs text-ink/40 italic">Loading contacts...</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Spiritually Interested Section */}
+                <div className="px-4 sm:px-6 py-2 flex items-center justify-between border-t border-navy/5">
+                  <button
+                    onClick={() => toggleSection('spiritually-interested')}
+                    className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
+                  >
+                    <svg
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'spiritually-interested' ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <span className="font-medium uppercase tracking-wider text-xs">Spiritually Interested</span>
+                  </button>
+                </div>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    openContactSection === 'spiritually-interested' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="px-4 sm:px-6 pb-3">
+                    <div className="flex flex-wrap gap-2">
+                      {sortedSpirituallyInterested.map(c => renderContactPill(c, 'spiritually-interested'))}
+                      {spirituallyInterestedContacts.length === 0 && !relationshipsLoading && (
+                        <p className="text-xs text-ink/40 italic">No spiritually interested contacts found</p>
                       )}
                       {relationshipsLoading && (
                         <p className="text-xs text-ink/40 italic">Loading contacts...</p>
@@ -2575,7 +2614,8 @@ export default function App() {
                                     // Also look up the contact from the lists to check name
                                     const contact = discipleContacts.find(c => c.id === w.blockId) ||
                                                     familyContacts.find(c => c.id === w.blockId) ||
-                                                    supportingPastorContacts.find(c => c.id === w.blockId);
+                                                    supportingPastorContacts.find(c => c.id === w.blockId) ||
+                                                    spirituallyInterestedContacts.find(c => c.id === w.blockId);
                                     const nameFromContact = (contact?.title || contact?.name || '').toLowerCase();
                                     return nameFromContact.includes('alyssa');
                                   });
@@ -2584,6 +2624,9 @@ export default function App() {
                                   );
                                   const isPastorMeetup = isRelationshipItem && !isAlyssaMeetup && !isFamilyMeetup && event.who?.some(w =>
                                     supportingPastorContacts.some(c => c.id === w.blockId)
+                                  );
+                                  const isSpirituallyInterestedMeetup = isRelationshipItem && !isAlyssaMeetup && !isFamilyMeetup && !isPastorMeetup && event.who?.some(w =>
+                                    spirituallyInterestedContacts.some(c => c.id === w.blockId)
                                   );
                                   const colorClass = isDevotionItem
                                     ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
@@ -2596,6 +2639,8 @@ export default function App() {
                                         ? 'bg-teal-50 border-teal-300 text-teal-700 hover:bg-teal-100'
                                         : isPastorMeetup
                                         ? 'bg-violet-50 border-violet-300 text-violet-700 hover:bg-violet-100'
+                                        : isSpirituallyInterestedMeetup
+                                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
                                         : 'bg-sky-50 border-sky-300 text-sky-700 hover:bg-sky-100')
                                     : getLessonTypeColor(lessonType);
 
@@ -2846,6 +2891,10 @@ export default function App() {
                     <div className="flex items-center gap-1.5">
                       <div className="w-3 h-3 rounded bg-violet-50 border border-violet-200" />
                       <span className="text-ink/70">Pastor</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-emerald-50 border border-emerald-200" />
+                      <span className="text-ink/70">Spiritually Interested</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="w-3 h-3 rounded bg-pink-50 border border-pink-200" />

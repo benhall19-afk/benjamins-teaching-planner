@@ -340,6 +340,13 @@ export async function fetchSupportingPastorContacts(forceRefresh = false) {
   return handleResponse(response);
 }
 
+export async function fetchSpirituallyInterestedContacts(forceRefresh = false) {
+  const params = new URLSearchParams({ tag: 'Spiritually Interested' });
+  if (forceRefresh) params.append('refresh', 'true');
+  const response = await fetch(`${API_BASE}/relationships/contacts?${params}`);
+  return handleResponse(response);
+}
+
 export async function fetchAllContacts() {
   const response = await fetch(`${API_BASE}/relationships/contacts`);
   return handleResponse(response);
