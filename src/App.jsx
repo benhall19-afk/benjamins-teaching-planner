@@ -715,6 +715,7 @@ export default function App() {
   const [showAddMeetupModal, setShowAddMeetupModal] = useState(false);
   const [addMeetupDate, setAddMeetupDate] = useState(null);
   const [addMeetupContact, setAddMeetupContact] = useState(null);
+  const [editingMeetup, setEditingMeetup] = useState(null);
   // Accordion state for contact sections: 'disciple' | 'family' | 'supporting-pastor' | null
   const [openContactSection, setOpenContactSection] = useState('disciple');
 
@@ -3407,6 +3408,34 @@ export default function App() {
         </Modal>
       )}
 
+      {/* Edit Meetup Modal */}
+      {editingMeetup && (
+        <Modal onClose={() => setEditingMeetup(null)}>
+          <h3 className="font-medium uppercase tracking-wider text-xs text-navy-600 mb-4">Edit Meetup</h3>
+          <EditMeetupForm
+            meetup={editingMeetup}
+            contacts={discipleContacts}
+            lessons={spiritualLessons}
+            onSave={async (updates) => {
+              setIsSaving(true);
+              try {
+                await api.updateRelationshipMeetup(editingMeetup.id, updates);
+                setRelationshipMeetups(prev =>
+                  prev.map(m => m.id === editingMeetup.id ? { ...m, ...updates } : m)
+                );
+                setEditingMeetup(null);
+                showToast('Meetup updated!', 'success');
+              } catch (err) {
+                showToast('Failed to update meetup: ' + err.message, 'error');
+              }
+              setIsSaving(false);
+            }}
+            onCancel={() => setEditingMeetup(null)}
+            isSaving={isSaving}
+          />
+        </Modal>
+      )}
+
       {/* Add Entry Modal */}
       {showAddModal && (
         <Modal onClose={() => setShowAddModal(false)}>
@@ -3497,7 +3526,8 @@ export default function App() {
         onClose={() => setSelectedMeetup(null)}
         onUpdate={handleUpdateMeetup}
         onEdit={(item) => {
-          showToast('Edit functionality coming soon', 'info');
+          setSelectedMeetup(null);
+          setEditingMeetup(item);
         }}
         onDelete={handleDeleteMeetup}
       />
@@ -4267,6 +4297,159 @@ function AddMeetupForm({ initialDate, initialContact, contacts, lessons, onSave,
           style={{ backgroundColor: 'var(--navy-500)' }}
         >
           {isSaving ? 'Adding...' : 'Add Meetup'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EditMeetupForm({ meetup, contacts, lessons, onSave, onCancel, isSaving }) {
+  const [entry, setEntry] = useState({
+    title: meetup.title || '',
+    when: meetup.when?.split('T')[0] || '',
+    who: meetup.who || [],
+    type: meetup.type || '1:1',
+    purpose: meetup.purpose || 'Fellowship',
+    lesson: meetup.lesson || null,
+    prepared: meetup.prepared || 'Scheduled',
+    notes: meetup.notes || ''
+  });
+
+  const typeOptions = ['1:1', 'Group', 'Family'];
+  const purposeOptions = ['Discipleship', 'First Time', 'Fellowship', 'Relationship Building'];
+  const preparedOptions = ['Scheduled', 'Need to Print of Study', 'Prepared', 'Complete'];
+
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Title (optional)</label>
+        <input
+          type="text"
+          value={entry.title}
+          onChange={(e) => setEntry(prev => ({ ...prev, title: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+          placeholder="Meetup title..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Date</label>
+        <input
+          type="date"
+          value={entry.when}
+          onChange={(e) => setEntry(prev => ({ ...prev, when: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Who</label>
+        <select
+          value={entry.who[0]?.blockId || ''}
+          onChange={(e) => {
+            const contact = contacts.find(c => c.id === e.target.value);
+            if (contact) {
+              setEntry(prev => ({ ...prev, who: [{ blockId: contact.id, title: contact.name }] }));
+            } else {
+              setEntry(prev => ({ ...prev, who: [] }));
+            }
+          }}
+          className="w-full input-glass text-sm sm:text-base"
+        >
+          <option value="">Select contact...</option>
+          {contacts.map(contact => (
+            <option key={contact.id} value={contact.id}>{contact.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Type</label>
+          <select
+            value={entry.type}
+            onChange={(e) => setEntry(prev => ({ ...prev, type: e.target.value }))}
+            className="w-full input-glass text-sm sm:text-base"
+          >
+            {typeOptions.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Purpose</label>
+          <select
+            value={entry.purpose}
+            onChange={(e) => setEntry(prev => ({ ...prev, purpose: e.target.value }))}
+            className="w-full input-glass text-sm sm:text-base"
+          >
+            {purposeOptions.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Lesson (optional)</label>
+        <select
+          value={entry.lesson?.blockId || ''}
+          onChange={(e) => {
+            const lesson = lessons.find(l => l.id === e.target.value);
+            if (lesson) {
+              setEntry(prev => ({ ...prev, lesson: { blockId: lesson.id, title: lesson.title } }));
+            } else {
+              setEntry(prev => ({ ...prev, lesson: null }));
+            }
+          }}
+          className="w-full input-glass text-sm sm:text-base"
+        >
+          <option value="">No lesson</option>
+          {lessons.map(lesson => (
+            <option key={lesson.id} value={lesson.id}>{lesson.title}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Status</label>
+        <select
+          value={entry.prepared}
+          onChange={(e) => setEntry(prev => ({ ...prev, prepared: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+        >
+          {preparedOptions.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Notes (optional)</label>
+        <textarea
+          value={entry.notes}
+          onChange={(e) => setEntry(prev => ({ ...prev, notes: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+          rows={3}
+          placeholder="Meetup notes..."
+        />
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 px-4 py-2.5 btn-glass text-sm"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onSave(entry)}
+          disabled={isSaving || !entry.when || entry.who.length === 0}
+          className="flex-1 px-4 py-2.5 text-white rounded-full text-sm font-medium transition-colors disabled:opacity-50"
+          style={{ backgroundColor: 'var(--navy-500)' }}
+        >
+          {isSaving ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
     </div>
