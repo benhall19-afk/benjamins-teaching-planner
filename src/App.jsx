@@ -2155,11 +2155,10 @@ export default function App() {
                       </button>
                       <button
                         onClick={() => {
-                          setAddMeetupDate(null);
-                          setShowAddMeetupModal(true);
+                          showToast('Add contact feature coming soon - add contacts directly in Craft', 'info');
                         }}
                         className="w-6 h-6 rounded-full flex items-center justify-center transition-colors text-sm bg-navy/10 hover:bg-navy/20 text-navy-600"
-                        title="Add meetup"
+                        title="Add new contact"
                       >
                         +
                       </button>
@@ -2506,13 +2505,13 @@ export default function App() {
                                   }
                                 }
                               }}
-                              className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer ${isToday ? 'border-sage bg-sage-100/70' : 'border-sage/20 bg-white/50'} hover:border-sage/50 ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''} ${hasDayHoliday ? `calendar-day-holiday calendar-day-holiday--${primaryDayHoliday.color}` : ''}`}
+                              className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer ${isToday ? (currentView === 'relationships' ? 'border-navy bg-navy-100/70' : currentView === 'english' ? 'border-purple bg-purple-100/70' : currentView === 'devotions' ? 'border-amber bg-amber-100/70' : 'border-sage bg-sage-100/70') : 'border-sage/20 bg-white/50'} hover:border-sage/50 ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''} ${hasDayHoliday ? `calendar-day-holiday calendar-day-holiday--${primaryDayHoliday.color}` : ''}`}
                             >
                               <div className="day-header flex items-center justify-between mb-0.5 sm:mb-1">
                                 <span className="flex items-center gap-0.5">
                                   <span className={`text-xs sm:text-sm font-medium ${
                                     isToday
-                                      ? 'text-white bg-sage-500 rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center'
+                                      ? `text-white ${currentView === 'relationships' ? 'bg-navy-500' : currentView === 'english' ? 'bg-purple-500' : currentView === 'devotions' ? 'bg-amber-500' : 'bg-sage-500'} rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center`
                                       : isSunday ? 'text-burgundy' : 'text-ink/60'
                                   }`}>
                                     {day}
@@ -2573,7 +2572,7 @@ export default function App() {
                                     : isEnglishItem
                                     ? 'bg-purple-50 border-purple-300 text-purple-700 hover:bg-purple-100'
                                     : isRelationshipItem
-                                    ? 'bg-navy-50 border-navy-300 text-navy-700 hover:bg-navy-100'
+                                    ? 'bg-sky-50 border-sky-300 text-sky-700 hover:bg-sky-100'
                                     : getLessonTypeColor(lessonType);
 
                                   const handleClick = () => {
@@ -2813,7 +2812,7 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded bg-navy-50 border border-navy-200" />
+                      <div className="w-3 h-3 rounded bg-sky-50 border border-sky-200" />
                       <span className="text-ink/70">Disciple</span>
                     </div>
                     <div className="flex items-center gap-1.5">
