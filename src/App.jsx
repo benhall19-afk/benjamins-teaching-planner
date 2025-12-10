@@ -1912,7 +1912,8 @@ export default function App() {
           <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-sage/10">
             <ViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
 
-            {/* Tab Switcher - Hidden on mobile, shown on md+ */}
+            {/* Tab Switcher - Hidden on mobile, shown on md+, hidden for devotions/english */}
+            {currentView !== 'devotions' && currentView !== 'english' && (
             <div className="hidden md:flex items-center gap-1 bg-sage-50/50 rounded-full p-1">
               <button
                 onClick={() => setActiveTab('calendar')}
@@ -1944,6 +1945,7 @@ export default function App() {
                 )}
               </button>
             </div>
+            )}
           </div>
 
           {/* Series Timeline - integrated into header, only on Calendar tab (not for combined or relationships view) */}
@@ -2396,7 +2398,8 @@ export default function App() {
                 )}
               </div>
 
-              {/* Filter Icons - absolute right */}
+              {/* Filter Icons - absolute right (only for sermons view) */}
+              {currentView === 'sermons' && (
               <div className="flex items-center gap-1.5 absolute right-3 sm:right-4 top-1/2 -translate-y-1/2">
                 <button
                   onClick={() => setFilterBenjamin(!filterBenjamin)}
@@ -2409,19 +2412,8 @@ export default function App() {
                 >
                   👨‍🏫
                 </button>
-
-                <button
-                  onClick={() => setHidePrepared(!hidePrepared)}
-                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-base sm:text-lg transition-all shadow-sm ${
-                    hidePrepared
-                      ? 'bg-sage-500 text-white ring-2 ring-sage-300'
-                      : 'bg-white/80 hover:bg-white'
-                  }`}
-                  title={hidePrepared ? "Show all sermons" : "Show only unprepared sermons"}
-                >
-                  {hidePrepared ? '☑️' : '✅'}
-                </button>
               </div>
+              )}
             </div>
 
             {/* Mobile-only: Unscheduled button */}
@@ -2487,7 +2479,7 @@ export default function App() {
                   return (
                     <div key={weekIndex} className={`flex ${hasWeekHoliday ? `week-row-holiday week-row-holiday--${primaryWeekHoliday.color}` : ''}`}>
                       {/* Week Number Semi-Circle Indicator */}
-                      <div className="week-indicator">
+                      <div className={`week-indicator ${isCurrentWeek ? 'current' : ''}`}>
                         {hasWeekHoliday && (
                           <span className="week-indicator-holiday" title={weekHolidays.map(h => h.name).join(', ')}>
                             {weekHolidays.length > 1 ? (
@@ -2544,15 +2536,19 @@ export default function App() {
                                   }
                                 }
                               }}
-                              className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer ${isToday ? (currentView === 'relationships' ? 'border-navy bg-navy-100/70' : currentView === 'english' ? 'border-purple bg-purple-100/70' : currentView === 'devotions' ? 'border-amber bg-amber-100/70' : 'border-sage bg-sage-100/70') : 'border-sage/20 bg-white/50'} hover:border-sage/50 ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''} ${hasDayHoliday ? `calendar-day-holiday calendar-day-holiday--${primaryDayHoliday.color}` : ''}`}
+                              className={`calendar-day group min-h-16 sm:min-h-24 p-1 sm:p-1.5 rounded-lg border transition-smooth cursor-pointer ${isToday ? (currentView === 'english' ? 'border-purple bg-purple-100/70' : currentView === 'devotions' ? 'border-amber bg-amber-100/70' : currentView !== 'relationships' ? 'border-sage bg-sage-100/70' : '') : 'border-sage/20 bg-white/50'} hover:border-sage/50 ${draggedEvent ? 'hover:border-sage-500 hover:bg-sage-50' : ''} ${hasDayHoliday ? `calendar-day-holiday calendar-day-holiday--${primaryDayHoliday.color}` : ''}`}
+                              style={isToday && currentView === 'relationships' ? { borderColor: '#627d98', backgroundColor: 'rgba(188, 204, 220, 0.7)' } : {}}
                             >
                               <div className="day-header flex items-center justify-between mb-0.5 sm:mb-1">
                                 <span className="flex items-center gap-0.5">
-                                  <span className={`text-xs sm:text-sm font-medium ${
-                                    isToday
-                                      ? `text-white ${currentView === 'relationships' ? 'bg-navy-500' : currentView === 'english' ? 'bg-purple-500' : currentView === 'devotions' ? 'bg-amber-500' : 'bg-sage-500'} rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center`
-                                      : isSunday ? 'text-burgundy' : 'text-ink/60'
-                                  }`}>
+                                  <span
+                                    className={`text-xs sm:text-sm font-medium ${
+                                      isToday
+                                        ? `text-white ${currentView === 'english' ? 'bg-purple-500' : currentView === 'devotions' ? 'bg-amber-500' : currentView !== 'relationships' ? 'bg-sage-500' : ''} rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center`
+                                        : isSunday ? 'text-burgundy' : 'text-ink/60'
+                                    }`}
+                                    style={isToday && currentView === 'relationships' ? { backgroundColor: '#486581' } : {}}
+                                  >
                                     {day}
                                   </span>
                                   {hasDayHoliday && (
@@ -2573,12 +2569,15 @@ export default function App() {
                                     } else if (currentView === 'devotions') {
                                       setAddDevotionDate(dateStr);
                                       setShowAddDevotionModal(true);
+                                    } else if (currentView === 'relationships') {
+                                      setAddMeetupDate(dateStr);
+                                      setShowAddMeetupModal(true);
                                     } else {
                                       setAddDate(dateStr);
                                       setShowAddModal(true);
                                     }
                                   }}
-                                  className={`w-5 h-5 hidden sm:flex items-center justify-center ${currentView === 'english' ? 'text-purple-600 hover:bg-purple/20' : currentView === 'devotions' ? 'text-amber-600 hover:bg-amber/20' : 'text-sage-600 hover:bg-sage/20'} rounded-full transition-all text-sm opacity-0 group-hover:opacity-100`}
+                                  className={`w-5 h-5 hidden sm:flex items-center justify-center ${currentView === 'english' ? 'text-purple-600 hover:bg-purple/20' : currentView === 'devotions' ? 'text-amber-600 hover:bg-amber/20' : currentView === 'relationships' ? 'text-navy-600 hover:bg-navy/20' : 'text-sage-600 hover:bg-sage/20'} rounded-full transition-all text-sm opacity-0 group-hover:opacity-100`}
                                 >
                                   +
                                 </button>
@@ -2740,7 +2739,7 @@ export default function App() {
               <UpcomingHolidays getUpcoming={getUpcoming} weeksAhead={6} />
               <button
                 onClick={openManagement}
-                className="mt-2 text-xs text-ink/40 hover:text-ink/70 transition-colors flex items-center gap-1"
+                className="mt-2 mb-4 text-xs text-ink/40 hover:text-ink/70 transition-colors flex items-center gap-1"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -2751,7 +2750,7 @@ export default function App() {
             </div>
 
             {/* Footer - View-specific content */}
-            <div className={`p-3 sm:p-4 border-t ${currentView === 'devotions' ? 'border-amber/10 bg-amber-50/30' : currentView === 'combined' ? 'border-slate/10 bg-slate-50/30' : 'border-sage/10 bg-sage-50/30'} text-xs sm:text-sm`}>
+            <div className={`p-3 sm:p-4 border-t ${currentView === 'devotions' ? 'border-amber/10 bg-amber-50/30' : currentView === 'english' ? 'border-purple/10 bg-purple-50/30' : currentView === 'relationships' ? 'border-navy/10 bg-navy-50/30' : currentView === 'combined' ? 'border-slate/10 bg-slate-50/30' : 'border-sage/10 bg-sage-50/30'} text-xs sm:text-sm`}>
               {/* Sermons View Footer */}
               {currentView === 'sermons' && (
                 <>
@@ -2791,68 +2790,6 @@ export default function App() {
                     </div>
                   </div>
                 </>
-              )}
-
-              {/* Devotions View Footer */}
-              {currentView === 'devotions' && (
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    {activeDevotionSeries ? (
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <div className="text-[10px] font-medium uppercase tracking-wider text-amber-600 mb-0.5">Active Series</div>
-                          <div className="font-semibold text-ink">{activeDevotionSeries.title}</div>
-                          {activeDevotionSeries.what_days_of_the_week && (
-                            <div className="text-[10px] text-ink/50 mt-0.5">
-                              {Array.isArray(activeDevotionSeries.what_days_of_the_week)
-                                ? activeDevotionSeries.what_days_of_the_week.join(', ')
-                                : activeDevotionSeries.what_days_of_the_week}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-ink/50">No active series</div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setShowPlanMonthModal(true)}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 btn-themed text-xs sm:text-sm"
-                  >
-                    Schedule Next 30 Days
-                  </button>
-                </div>
-              )}
-
-              {/* English View Footer */}
-              {currentView === 'english' && (
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    {activeEnglishSeries ? (
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <div className="text-[10px] font-medium uppercase tracking-wider text-purple-600 mb-0.5">Active Series</div>
-                          <div className="font-semibold text-ink">{activeEnglishSeries.title}</div>
-                          {activeEnglishSeries.what_days_of_the_week && (
-                            <div className="text-[10px] text-ink/50 mt-0.5">
-                              {Array.isArray(activeEnglishSeries.what_days_of_the_week)
-                                ? activeEnglishSeries.what_days_of_the_week.join(', ')
-                                : activeEnglishSeries.what_days_of_the_week}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-ink/50">No active series</div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setShowPlanMonthModal(true)}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 btn-themed text-xs sm:text-sm"
-                  >
-                    Schedule Next 30 Days
-                  </button>
-                </div>
               )}
 
               {/* Combined View Footer */}

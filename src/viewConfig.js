@@ -15,8 +15,8 @@ export const VIEWS = {
   },
   devotions: {
     id: 'devotions',
-    name: 'Hall Family Devotions',
-    icon: '👨‍👩‍👧‍👦',
+    name: 'Family Devotions',
+    icon: '❤️',
     theme: 'amber',
     layout: 'monthly',
     primaryAction: 'planMonth',
