@@ -2567,12 +2567,18 @@ export default function App() {
                                     ? isRelationshipMeetupPrepared(event)
                                     : isPreparedSermon(event);
                                   const shouldDim = hidePrepared && isPrepared;
+                                  // For relationship items, check if it's with Alyssa for special pink color
+                                  const isAlyssaMeetup = isRelationshipItem && event.who?.some(w =>
+                                    (w.title || w.name || '').toLowerCase() === 'alyssa'
+                                  );
                                   const colorClass = isDevotionItem
                                     ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
                                     : isEnglishItem
                                     ? 'bg-purple-50 border-purple-300 text-purple-700 hover:bg-purple-100'
                                     : isRelationshipItem
-                                    ? 'bg-sky-50 border-sky-300 text-sky-700 hover:bg-sky-100'
+                                    ? (isAlyssaMeetup
+                                        ? 'bg-pink-50 border-pink-300 text-pink-700 hover:bg-pink-100'
+                                        : 'bg-sky-50 border-sky-300 text-sky-700 hover:bg-sky-100')
                                     : getLessonTypeColor(lessonType);
 
                                   const handleClick = () => {
