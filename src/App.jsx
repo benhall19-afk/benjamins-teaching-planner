@@ -737,12 +737,16 @@ export default function App() {
   const [draggedEvent, setDraggedEvent] = useState(null);
   const [showTimeline, setShowTimeline] = useState(false);
 
-  // Review state
+  // Review state (sermons)
   const [currentSermonIndex, setCurrentSermonIndex] = useState(0);
   const [recommendations, setRecommendations] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [editedRecommendations, setEditedRecommendations] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+
+  // Review state (relationship meetups)
+  const [currentMeetupReviewIndex, setCurrentMeetupReviewIndex] = useState(0);
+  const [editedMeetupReview, setEditedMeetupReview] = useState({});
 
   // Custom options (user-added values)
   const [customOptions, setCustomOptions] = useState({
@@ -955,6 +959,25 @@ export default function App() {
 
   const currentSermon = sermonsNeedingInfo[currentSermonIndex];
 
+  // Relationship meetups needing review (prepared === 'Prepared' and date is past)
+  const meetupsNeedingReview = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return relationshipMeetups.filter(m => {
+      // Only show meetups marked as "Prepared"
+      if (m.prepared !== 'Prepared') return false;
+
+      // Only show meetups with a date in the past or today
+      if (!m.when) return false;
+      const meetupDate = new Date(m.when);
+      meetupDate.setHours(0, 0, 0, 0);
+      return meetupDate <= today;
+    }).sort((a, b) => new Date(a.when) - new Date(b.when)); // Oldest first
+  }, [relationshipMeetups]);
+
+  const currentMeetupForReview = meetupsNeedingReview[currentMeetupReviewIndex];
+
   // Get the active devotion series (first one with a title)
   const activeDevotionSeries = useMemo(() => {
     if (devotionSeries.length === 0) return null;
@@ -1087,6 +1110,25 @@ export default function App() {
       setCurrentSermonIndex(sermonsNeedingInfo.length - 1);
     }
   }, [sermonsNeedingInfo.length, currentSermonIndex]);
+
+  // Keep meetup review index in bounds
+  useEffect(() => {
+    if (meetupsNeedingReview.length > 0 && currentMeetupReviewIndex >= meetupsNeedingReview.length) {
+      setCurrentMeetupReviewIndex(meetupsNeedingReview.length - 1);
+    }
+  }, [meetupsNeedingReview.length, currentMeetupReviewIndex]);
+
+  // Initialize editedMeetupReview when current meetup changes
+  useEffect(() => {
+    if (currentMeetupForReview) {
+      setEditedMeetupReview({
+        when: currentMeetupForReview.when || '',
+        type: currentMeetupForReview.type || '',
+        purpose: currentMeetupForReview.purpose || '',
+        notes: currentMeetupForReview.notes || ''
+      });
+    }
+  }, [currentMeetupForReview]);
 
   // Initialize editedRecommendations with existing sermon data when sermon changes
   useEffect(() => {
@@ -1797,6 +1839,36 @@ export default function App() {
     setIsSaving(false);
   };
 
+  // Mark meetup as complete (move from Prepared to Complete)
+  const handleMarkMeetupComplete = async (saveEdits = false) => {
+    if (!currentMeetupForReview) return;
+
+    setIsSaving(true);
+    try {
+      const updates = { prepared: 'Complete' };
+
+      // Optionally save any edits to notes
+      if (saveEdits && editedMeetupReview.notes !== currentMeetupForReview.notes) {
+        updates.notes = editedMeetupReview.notes;
+      }
+
+      await api.updateRelationshipMeetup(currentMeetupForReview.id, updates);
+
+      // Update local state
+      setRelationshipMeetups(prev => prev.map(m =>
+        m.id === currentMeetupForReview.id
+          ? { ...m, prepared: 'Complete', notes: saveEdits ? editedMeetupReview.notes : m.notes }
+          : m
+      ));
+
+      setEditedMeetupReview({});
+      showToast('Meetup marked as complete!', 'success');
+    } catch (err) {
+      showToast('Failed to mark complete: ' + err.message, 'error');
+    }
+    setIsSaving(false);
+  };
+
   // ============================================
   // RENDER
   // ============================================
@@ -1853,10 +1925,18 @@ export default function App() {
                 }`}
               >
                 📝 Review
-                {sermonsNeedingInfo.length > 0 && (
-                  <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full">
-                    {sermonsNeedingInfo.length}
-                  </span>
+                {currentView === 'relationships' ? (
+                  meetupsNeedingReview.length > 0 && (
+                    <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                      {meetupsNeedingReview.length}
+                    </span>
+                  )
+                ) : (
+                  sermonsNeedingInfo.length > 0 && (
+                    <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                      {sermonsNeedingInfo.length}
+                    </span>
+                  )
                 )}
               </button>
             </div>
@@ -2717,7 +2797,146 @@ export default function App() {
         {/* Review Tab */}
         {activeTab === 'review' && (
           <div className="glass-card p-3 sm:p-6 mb-4 sm:mb-6 animate-card-in">
-            {sermonsNeedingInfo.length === 0 ? (
+            {currentView === 'relationships' ? (
+              /* Relationship Meetup Review */
+              meetupsNeedingReview.length === 0 ? (
+                <div className="text-center py-8 sm:py-12">
+                  <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">✅</div>
+                  <h2 className="text-xl sm:text-2xl font-display font-bold text-ink">All Meetups Reviewed!</h2>
+                  <p className="text-ink/60 mt-2 text-sm sm:text-base">No prepared meetups need review.</p>
+                </div>
+              ) : currentMeetupForReview ? (
+                <div>
+                  {/* Review Header */}
+                  <div className="flex items-center justify-between mb-4 sm:mb-6">
+                    <h2 className="text-base sm:text-xl font-display font-semibold text-ink">
+                      Meetup {currentMeetupReviewIndex + 1} of {meetupsNeedingReview.length}
+                    </h2>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentMeetupReviewIndex(Math.max(0, currentMeetupReviewIndex - 1))}
+                        disabled={currentMeetupReviewIndex === 0}
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-parchment rounded-lg disabled:opacity-30 transition-colors"
+                      >
+                        ◀
+                      </button>
+                      <button
+                        onClick={() => setCurrentMeetupReviewIndex(Math.min(meetupsNeedingReview.length - 1, currentMeetupReviewIndex + 1))}
+                        disabled={currentMeetupReviewIndex === meetupsNeedingReview.length - 1}
+                        className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-parchment rounded-lg disabled:opacity-30 transition-colors"
+                      >
+                        ▶
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-stretch">
+                    {/* Meetup Info */}
+                    <div className="bg-parchment/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gold/20 flex flex-col">
+                      <h3 className="font-display font-semibold text-base sm:text-lg text-ink mb-3">
+                        {currentMeetupForReview.title || 'Meetup'}
+                      </h3>
+
+                      <div className="space-y-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-ink/50 w-20">Date:</span>
+                          <span className="text-ink font-medium">
+                            {currentMeetupForReview.when
+                              ? new Date(currentMeetupForReview.when).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                              : 'No date'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-ink/50 w-20">With:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {currentMeetupForReview.who?.map((person, idx) => {
+                              const contact = discipleContacts.find(c => c.id === person.blockId) ||
+                                              familyContacts.find(c => c.id === person.blockId) ||
+                                              supportingPastorContacts.find(c => c.id === person.blockId);
+                              return (
+                                <span key={idx} className="px-2 py-0.5 bg-navy/10 rounded-full text-xs">
+                                  {contact?.name || person.blockId?.slice(0, 8)}
+                                </span>
+                              );
+                            }) || <span className="text-ink/40">No one specified</span>}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-ink/50 w-20">Type:</span>
+                          <span className="text-ink">{currentMeetupForReview.type || '-'}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-ink/50 w-20">Purpose:</span>
+                          <span className="text-ink">{currentMeetupForReview.purpose || '-'}</span>
+                        </div>
+
+                        {currentMeetupForReview.lesson && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-ink/50 w-20">Lesson:</span>
+                            <span className="text-ink">
+                              {spiritualLessons.find(l => l.id === currentMeetupForReview.lesson.blockId)?.title || 'Lesson'}
+                            </span>
+                          </div>
+                        )}
+
+                        {currentMeetupForReview.notes && (
+                          <div className="mt-3 pt-3 border-t border-ink/10">
+                            <span className="text-ink/50 text-xs uppercase tracking-wider">Notes:</span>
+                            <p className="text-ink/70 mt-1 whitespace-pre-wrap">{currentMeetupForReview.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Edit / Confirm Section */}
+                    <div className="bg-blue-50/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-blue-200/50 flex flex-col">
+                      <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-3">
+                        Review & Confirm
+                      </h3>
+
+                      <p className="text-ink/50 text-xs mb-4">
+                        Review the meetup details and add any notes before marking complete.
+                      </p>
+
+                      <div className="space-y-4 flex-1">
+                        <div>
+                          <label className="block text-xs font-medium text-ink/70 mb-1">Notes</label>
+                          <textarea
+                            value={editedMeetupReview.notes || ''}
+                            onChange={(e) => setEditedMeetupReview(prev => ({ ...prev, notes: e.target.value }))}
+                            rows={4}
+                            className="w-full input-glass text-sm resize-y"
+                            placeholder="Add review notes about how the meetup went..."
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                        <button
+                          onClick={() => handleMarkMeetupComplete(false)}
+                          disabled={isSaving}
+                          className="flex-1 py-2.5 sm:py-3 rounded-xl font-medium text-sm transition-all bg-ink/10 hover:bg-ink/20 text-ink disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {isSaving ? 'Saving...' : '✓ Approve'}
+                        </button>
+                        <button
+                          onClick={() => handleMarkMeetupComplete(true)}
+                          disabled={isSaving}
+                          className="flex-1 py-2.5 sm:py-3 btn-glossy-sage text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {isSaving ? 'Saving...' : '✓ Approve & Complete'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null
+            ) : (
+              /* Sermon Review - existing code */
+              sermonsNeedingInfo.length === 0 ? (
               <div className="text-center py-8 sm:py-12">
                 <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">✅</div>
                 <h2 className="text-xl sm:text-2xl font-display font-bold text-ink">All Sermons Reviewed!</h2>
@@ -2998,6 +3217,7 @@ export default function App() {
                   Retry
                 </button>
               </div>
+            )
             )}
           </div>
         )}
@@ -3316,10 +3536,18 @@ export default function App() {
           >
             <span className="text-base">📝</span>
             <span>Review</span>
-            {sermonsNeedingInfo.length > 0 && (
-              <span className="bg-sage-500 text-white text-xs px-1.5 py-0.5 rounded-full ml-0.5">
-                {sermonsNeedingInfo.length}
-              </span>
+            {currentView === 'relationships' ? (
+              meetupsNeedingReview.length > 0 && (
+                <span className="bg-sage-500 text-white text-xs px-1.5 py-0.5 rounded-full ml-0.5">
+                  {meetupsNeedingReview.length}
+                </span>
+              )
+            ) : (
+              sermonsNeedingInfo.length > 0 && (
+                <span className="bg-sage-500 text-white text-xs px-1.5 py-0.5 rounded-full ml-0.5">
+                  {sermonsNeedingInfo.length}
+                </span>
+              )
             )}
           </button>
         </div>
