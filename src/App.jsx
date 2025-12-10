@@ -2567,9 +2567,15 @@ export default function App() {
                                     ? isRelationshipMeetupPrepared(event)
                                     : isPreparedSermon(event);
                                   const shouldDim = hidePrepared && isPrepared;
-                                  // For relationship items, check if it's with Alyssa for special pink color
+                                  // For relationship items, determine color based on contact's tag group
                                   const isAlyssaMeetup = isRelationshipItem && event.who?.some(w =>
                                     (w.title || w.name || '').toLowerCase() === 'alyssa'
+                                  );
+                                  const isFamilyMeetup = isRelationshipItem && !isAlyssaMeetup && event.who?.some(w =>
+                                    familyContacts.some(c => c.id === w.blockId)
+                                  );
+                                  const isPastorMeetup = isRelationshipItem && !isAlyssaMeetup && !isFamilyMeetup && event.who?.some(w =>
+                                    supportingPastorContacts.some(c => c.id === w.blockId)
                                   );
                                   const colorClass = isDevotionItem
                                     ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
@@ -2578,6 +2584,10 @@ export default function App() {
                                     : isRelationshipItem
                                     ? (isAlyssaMeetup
                                         ? 'bg-pink-50 border-pink-300 text-pink-700 hover:bg-pink-100'
+                                        : isFamilyMeetup
+                                        ? 'bg-teal-50 border-teal-300 text-teal-700 hover:bg-teal-100'
+                                        : isPastorMeetup
+                                        ? 'bg-violet-50 border-violet-300 text-violet-700 hover:bg-violet-100'
                                         : 'bg-sky-50 border-sky-300 text-sky-700 hover:bg-sky-100')
                                     : getLessonTypeColor(lessonType);
 
