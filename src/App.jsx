@@ -30,7 +30,7 @@ function Toast({ message, type, onClose }) {
   const bgColor = type === 'success' ? 'bg-sage' : type === 'error' ? 'bg-burgundy' : 'bg-gold';
 
   return (
-    <div className={`toast fixed bottom-4 right-4 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2`}>
+    <div className={`toast fixed bottom-4 right-4 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg z-[100] flex items-center gap-2`}>
       <span>{type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span>
       <span>{message}</span>
       <button onClick={onClose} className="ml-2 hover:opacity-70">×</button>
@@ -3486,7 +3486,7 @@ export default function App() {
           <h3 className="font-medium uppercase tracking-wider text-xs text-navy-600 mb-4">Edit Meetup</h3>
           <EditMeetupForm
             meetup={editingMeetup}
-            contacts={discipleContacts}
+            contacts={[...new Map([...discipleContacts, ...familyContacts, ...supportingPastorContacts, ...spirituallyInterestedContacts].map(c => [c.id, c])).values()]}
             lessons={spiritualLessons}
             onSave={async (updates) => {
               setIsSaving(true);
@@ -4277,7 +4277,7 @@ function AddMeetupForm({ initialDate, initialContact, contacts, lessons, onSave,
         >
           <option value="">Select contact...</option>
           {contacts.map(contact => (
-            <option key={contact.id} value={contact.id}>{contact.name}</option>
+            <option key={contact.id} value={contact.id}>{contact.name || contact.title}</option>
           ))}
         </select>
       </div>
@@ -4430,7 +4430,7 @@ function EditMeetupForm({ meetup, contacts, lessons, onSave, onCancel, isSaving 
         >
           <option value="">Select contact...</option>
           {contacts.map(contact => (
-            <option key={contact.id} value={contact.id}>{contact.name}</option>
+            <option key={contact.id} value={contact.id}>{contact.name || contact.title}</option>
           ))}
         </select>
       </div>
