@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as api from '../api';
-import { isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle, isEnglishClassPrepared, getEnglishClassDisplayTitle } from '../viewConfig';
+import { isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle, isEnglishClassPrepared, getEnglishClassDisplayTitle, isRelationshipMeetupPrepared, getRelationshipMeetupDisplayTitle } from '../viewConfig';
 import LoadingIndicator from './LoadingIndicator';
 
 export default function ItemDetailPopup({
@@ -9,7 +9,8 @@ export default function ItemDetailPopup({
   isOpen,
   onClose,
   onUpdate,
-  onEdit
+  onEdit,
+  onDelete
 }) {
   const [markingComplete, setMarkingComplete] = useState(false);
   const [togglingPrepared, setTogglingPrepared] = useState(false);
@@ -20,7 +21,7 @@ export default function ItemDetailPopup({
 
   // Local optimistic state for prepared toggle
   const initialPrepared = item
-    ? (source === 'sermon' ? isSermonPrepared(item) : source === 'devotion' ? isDevotionPrepared(item) : isEnglishClassPrepared(item))
+    ? (source === 'sermon' ? isSermonPrepared(item) : source === 'devotion' ? isDevotionPrepared(item) : source === 'english' ? isEnglishClassPrepared(item) : source === 'relationship' ? isRelationshipMeetupPrepared(item) : false)
     : false;
   const [localPrepared, setLocalPrepared] = useState(initialPrepared);
 
@@ -39,7 +40,11 @@ export default function ItemDetailPopup({
         ? isSermonPrepared(item)
         : source === 'devotion'
         ? isDevotionPrepared(item)
-        : isEnglishClassPrepared(item);
+        : source === 'english'
+        ? isEnglishClassPrepared(item)
+        : source === 'relationship'
+        ? isRelationshipMeetupPrepared(item)
+        : false;
       setLocalPrepared(prepared);
       if (source === 'sermon') {
         setLocalStatus(item.status || 'Draft');
@@ -68,7 +73,9 @@ export default function ItemDetailPopup({
     ? (item.sermon_name || item.title || 'Untitled')
     : source === 'devotion'
     ? getDevotionDisplayTitle(item)
-    : getEnglishClassDisplayTitle(item);
+    : source === 'english'
+    ? getEnglishClassDisplayTitle(item)
+    : getRelationshipMeetupDisplayTitle(item);
 
   const handleMarkComplete = async () => {
     setMarkingComplete(true);
@@ -166,7 +173,7 @@ export default function ItemDetailPopup({
     setUpdatingClassStatus(false);
   };
 
-  const colorClass = source === 'sermon' ? 'sage' : source === 'devotion' ? 'amber' : 'purple';
+  const colorClass = source === 'sermon' ? 'sage' : source === 'devotion' ? 'amber' : source === 'english' ? 'purple' : 'navy';
 
   // Generate Craft deeplink URL (only for items with valid UUID format)
   const spaceId = import.meta.env.VITE_CRAFT_SPACE_ID;
@@ -189,9 +196,9 @@ export default function ItemDetailPopup({
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1 pr-4">
             <div className={`text-xs font-medium text-${colorClass}-600 uppercase tracking-wider mb-1`}>
-              {source === 'sermon' ? 'Sermon' : source === 'devotion' ? (item.category || 'Devotion') : 'English Class'}
+              {source === 'sermon' ? 'Sermon' : source === 'devotion' ? (item.category || 'Devotion') : source === 'english' ? 'English Class' : 'Meetup'}
             </div>
-            {(source === 'sermon' || source === 'english') && (
+            {(source === 'sermon' || source === 'english' || source === 'relationship') && (
               <h2 className="text-xl font-semibold text-ink">{displayTitle}</h2>
             )}
           </div>
@@ -297,6 +304,62 @@ export default function ItemDetailPopup({
                             day: 'numeric'
                           })}
                         </div>
+                      </div>
+                    )}
+                    {item.notes && (
+                      <div>
+                        <span className="text-xs text-ink/50">Notes:</span>
+                        <div className="text-sm text-ink">{item.notes}</div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {source === 'relationship' && (
+                  <>
+                    {item.who && item.who.length > 0 && (
+                      <div>
+                        <span className="text-xs text-ink/50">Who:</span>
+                        <div className="text-sm font-medium text-ink">
+                          {item.who.map(w => w.title || w.name).join(', ')}
+                        </div>
+                      </div>
+                    )}
+                    {item.when && (
+                      <div>
+                        <span className="text-xs text-ink/50">Date:</span>
+                        <div className="text-sm font-medium text-ink">
+                          {new Date(item.when).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {item.type && (
+                      <div>
+                        <span className="text-xs text-ink/50">Type:</span>
+                        <div className="text-sm font-medium text-ink">{item.type}</div>
+                      </div>
+                    )}
+                    {item.purpose && (
+                      <div>
+                        <span className="text-xs text-ink/50">Purpose:</span>
+                        <div className="text-sm font-medium text-ink">{item.purpose}</div>
+                      </div>
+                    )}
+                    {item.prepared && (
+                      <div>
+                        <span className="text-xs text-ink/50">Prepared:</span>
+                        <div className="text-sm font-medium text-ink">{item.prepared}</div>
+                      </div>
+                    )}
+                    {item.lesson && (
+                      <div>
+                        <span className="text-xs text-ink/50">Lesson:</span>
+                        <div className="text-sm font-medium text-ink">{item.lesson.title}</div>
                       </div>
                     )}
                     {item.notes && (
@@ -416,6 +479,19 @@ export default function ItemDetailPopup({
                     </svg>
                     Open in Craft
                   </a>
+                )}
+                {/* Delete button for relationships */}
+                {source === 'relationship' && onDelete && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this meetup?')) {
+                        onDelete(item.id);
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                  >
+                    Delete Meetup
+                  </button>
                 )}
                 <div className="flex gap-3">
                   <button

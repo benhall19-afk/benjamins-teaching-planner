@@ -76,6 +76,20 @@ const DAILY_NOTES_API_KEY = process.env.DAILY_NOTES_API_KEY || '';
 const DAILY_NOTES_COLLECTION_ID = 'BC155F15-CA55-4510-B545-B3BD1469A8CA';
 
 // ============================================
+// RELATIONSHIPS API CONFIGURATION
+// ============================================
+
+const RELATIONSHIPS_API_URL = process.env.RELATIONSHIPS_API_URL || '';
+const RELATIONSHIPS_API_KEY = process.env.RELATIONSHIPS_API_KEY || '';
+
+// Known collection IDs for relationships (from API discovery)
+const RELATIONSHIPS_COLLECTIONS = {
+  meetups: 'CF47653E-361C-4A30-8297-AD122CC050A5',
+  people: 'E9712093-C3A5-4CFA-B7B1-4357AD830D38',
+  lessons: 'C7B700CB-46C5-4E42-9F04-EFAF25330970'
+};
+
+// ============================================
 // IN-MEMORY CACHE WITH TTL
 // ============================================
 
@@ -186,6 +200,43 @@ function invalidateCacheEnglish(key) {
     englishCache[key] = { data: null, timestamp: 0 };
   } else {
     Object.keys(englishCache).forEach(k => englishCache[k] = { data: null, timestamp: 0 });
+  }
+}
+
+// ============================================
+// RELATIONSHIPS CACHE
+// ============================================
+
+const relationshipsCache = {
+  meetups: { data: null, timestamp: 0, refreshing: false },
+  people: { data: null, timestamp: 0, refreshing: false },
+  lessons: { data: null, timestamp: 0, refreshing: false }
+};
+
+function getCachedRelationships(key) {
+  const entry = relationshipsCache[key];
+  if (entry.data && (Date.now() - entry.timestamp) < CACHE_TTL) {
+    return { data: entry.data, fresh: true };
+  }
+  if (entry.data && (Date.now() - entry.timestamp) < STALE_TTL) {
+    return { data: entry.data, fresh: false };
+  }
+  return null;
+}
+
+function setCacheRelationships(key, data) {
+  relationshipsCache[key] = { data, timestamp: Date.now(), refreshing: false };
+}
+
+function setRefreshingRelationships(key, value) {
+  if (relationshipsCache[key]) relationshipsCache[key].refreshing = value;
+}
+
+function invalidateCacheRelationships(key) {
+  if (key) {
+    relationshipsCache[key] = { data: null, timestamp: 0 };
+  } else {
+    Object.keys(relationshipsCache).forEach(k => relationshipsCache[k] = { data: null, timestamp: 0 });
   }
 }
 
@@ -312,6 +363,32 @@ async function dailyNotesRequest(endpoint, options = {}) {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Daily Notes API error (${response.status}): ${errorText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Make authenticated request to Relationships Craft API
+ */
+async function relationshipsRequest(endpoint, options = {}) {
+  if (!RELATIONSHIPS_API_URL || !RELATIONSHIPS_API_KEY) {
+    throw new Error('Relationships API not configured');
+  }
+
+  const url = `${RELATIONSHIPS_API_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${RELATIONSHIPS_API_KEY}`,
+      ...options.headers
+    }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Relationships API error (${response.status}): ${errorText}`);
   }
 
   return response.json();
@@ -1834,6 +1911,263 @@ app.post('/api/english/cascade-reschedule', async (req, res) => {
   } catch (error) {
     console.error('Failed to cascade reschedule:', error);
     res.status(500).json({ error: 'Failed to cascade reschedule', details: error.message });
+  }
+});
+
+// ============================================
+// RELATIONSHIPS MEETUPS API ROUTES
+// ============================================
+
+// Helper function to fetch all meetups
+async function fetchRelationshipMeetupsData() {
+  const result = await relationshipsRequest(`/collections/${RELATIONSHIPS_COLLECTIONS.meetups}/items`);
+  return (result.items || result).map(item => ({
+    id: item.id,
+    title: item.title || '',
+    when: item.properties?.when || null,
+    type: item.properties?.type || null,
+    purpose: item.properties?.purpose || null,
+    prepared: item.properties?.prepared || null,
+    who: item.properties?.who?.relations || [],
+    lesson: item.properties?.lesson?.relations?.[0] || null,
+    notes: item.content?.find(c => c.type === 'text')?.markdown || '',
+    properties: item.properties
+  }));
+}
+
+// Helper function to fetch all people (contacts)
+async function fetchRelationshipPeopleData() {
+  const result = await relationshipsRequest(`/collections/${RELATIONSHIPS_COLLECTIONS.people}/items`);
+  return (result.items || result).map(item => ({
+    id: item.id,
+    title: item.title || '',
+    name: item.title || '',
+    tags: item.properties?.tags || [],
+    gender: item.properties?.gender || null,
+    properties: item.properties
+  }));
+}
+
+// Helper function to fetch all spiritual lessons
+async function fetchRelationshipLessonsData() {
+  const result = await relationshipsRequest(`/collections/${RELATIONSHIPS_COLLECTIONS.lessons}/items`);
+  return (result.items || result).map(item => ({
+    id: item.id,
+    title: item.title || '',
+    lesson_number: item.properties?.lesson_number || null,
+    resource: item.properties?.resource?.relations?.[0] || null,
+    properties: item.properties
+  }));
+}
+
+// GET /api/relationships/meetups - Fetch all meetups
+app.get('/api/relationships/meetups', async (req, res) => {
+  try {
+    const cached = getCachedRelationships('meetups');
+    if (cached) {
+      res.json(cached.data);
+
+      if (!cached.fresh && !relationshipsCache.meetups.refreshing) {
+        setRefreshingRelationships('meetups', true);
+        fetchRelationshipMeetupsData()
+          .then(data => {
+            setCacheRelationships('meetups', data);
+            console.log('Relationships meetups cache refreshed');
+          })
+          .catch(err => {
+            console.error('Relationships meetups refresh failed:', err.message);
+            setRefreshingRelationships('meetups', false);
+          });
+      }
+      return;
+    }
+
+    const meetups = await fetchRelationshipMeetupsData();
+    setCacheRelationships('meetups', meetups);
+    res.json(meetups);
+  } catch (error) {
+    console.error('Failed to fetch relationship meetups:', error);
+    res.status(500).json({ error: 'Failed to fetch meetups', details: error.message });
+  }
+});
+
+// POST /api/relationships/meetups - Create a new meetup
+app.post('/api/relationships/meetups', async (req, res) => {
+  try {
+    const { title, when, type, purpose, prepared, who, lesson, notes } = req.body;
+
+    // Generate a title if not provided (use contact name or "Meetup")
+    let meetupTitle = title;
+    if (!meetupTitle && who && who.length > 0) {
+      meetupTitle = who.map(w => w.title || w.name).join(', ');
+    }
+    if (!meetupTitle) {
+      meetupTitle = 'Meetup';
+    }
+
+    const properties = {};
+    if (when) properties.when = when;
+    if (type) properties.type = type;
+    if (purpose) properties.purpose = purpose;
+    if (prepared) properties.prepared = prepared;
+    if (who && who.length > 0) {
+      properties.who = { relations: who.map(w => ({ blockId: w.blockId || w.id })) };
+    }
+    if (lesson) {
+      properties.lesson = { relations: [{ blockId: lesson.blockId || lesson.id }] };
+    }
+    if (notes) properties.notes = notes;
+
+    const result = await relationshipsRequest(`/collections/${RELATIONSHIPS_COLLECTIONS.meetups}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ items: [{ title: meetupTitle, properties }] })
+    });
+
+    invalidateCacheRelationships('meetups');
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to add meetup:', error);
+    res.status(500).json({ error: 'Failed to add meetup', details: error.message });
+  }
+});
+
+// PUT /api/relationships/meetups/:id - Update a meetup
+app.put('/api/relationships/meetups/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const itemUpdate = { id };
+
+    if (updates.title !== undefined) {
+      itemUpdate.title = updates.title;
+    }
+
+    const properties = {};
+    if (updates.when !== undefined) properties.when = updates.when;
+    if (updates.type !== undefined) properties.type = updates.type;
+    if (updates.purpose !== undefined) properties.purpose = updates.purpose;
+    if (updates.prepared !== undefined) properties.prepared = updates.prepared;
+    if (updates.who !== undefined) {
+      properties.who = { relations: updates.who.map(w => ({ blockId: w.blockId || w.id })) };
+    }
+    if (updates.lesson !== undefined) {
+      properties.lesson = updates.lesson
+        ? { relations: [{ blockId: updates.lesson.blockId || updates.lesson.id }] }
+        : null;
+    }
+
+    if (Object.keys(properties).length > 0) {
+      itemUpdate.properties = properties;
+    }
+
+    if (updates.notes !== undefined) {
+      itemUpdate.content = [{ type: 'text', markdown: updates.notes }];
+    }
+
+    const result = await relationshipsRequest(`/collections/${RELATIONSHIPS_COLLECTIONS.meetups}/items`, {
+      method: 'PUT',
+      body: JSON.stringify({ itemsToUpdate: [itemUpdate] })
+    });
+
+    invalidateCacheRelationships('meetups');
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to update meetup:', error);
+    res.status(500).json({ error: 'Failed to update meetup', details: error.message });
+  }
+});
+
+// DELETE /api/relationships/meetups/:id - Delete a meetup
+app.delete('/api/relationships/meetups/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await relationshipsRequest(`/collections/${RELATIONSHIPS_COLLECTIONS.meetups}/items`, {
+      method: 'DELETE',
+      body: JSON.stringify({ itemIds: [id] })
+    });
+
+    invalidateCacheRelationships('meetups');
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete meetup:', error);
+    res.status(500).json({ error: 'Failed to delete meetup', details: error.message });
+  }
+});
+
+// GET /api/relationships/contacts - Fetch all contacts (optionally filter by tag)
+app.get('/api/relationships/contacts', async (req, res) => {
+  try {
+    const { tag, refresh } = req.query;
+    const forceRefresh = refresh === 'true';
+
+    const cached = getCachedRelationships('people');
+    let people;
+
+    if (cached && !forceRefresh) {
+      people = cached.data;
+
+      if (!cached.fresh && !relationshipsCache.people.refreshing) {
+        setRefreshingRelationships('people', true);
+        fetchRelationshipPeopleData()
+          .then(data => {
+            setCacheRelationships('people', data);
+            console.log('Relationships people cache refreshed');
+          })
+          .catch(err => {
+            console.error('Relationships people refresh failed:', err.message);
+            setRefreshingRelationships('people', false);
+          });
+      }
+    } else {
+      people = await fetchRelationshipPeopleData();
+      setCacheRelationships('people', people);
+    }
+
+    // Filter by tag if specified (case-insensitive)
+    if (tag) {
+      const tagLower = tag.toLowerCase();
+      people = people.filter(p =>
+        p.tags && p.tags.some(t => t.toLowerCase() === tagLower)
+      );
+    }
+
+    res.json(people);
+  } catch (error) {
+    console.error('Failed to fetch contacts:', error);
+    res.status(500).json({ error: 'Failed to fetch contacts', details: error.message });
+  }
+});
+
+// GET /api/relationships/lessons - Fetch all spiritual lessons
+app.get('/api/relationships/lessons', async (req, res) => {
+  try {
+    const cached = getCachedRelationships('lessons');
+    if (cached) {
+      res.json(cached.data);
+
+      if (!cached.fresh && !relationshipsCache.lessons.refreshing) {
+        setRefreshingRelationships('lessons', true);
+        fetchRelationshipLessonsData()
+          .then(data => {
+            setCacheRelationships('lessons', data);
+            console.log('Relationships lessons cache refreshed');
+          })
+          .catch(err => {
+            console.error('Relationships lessons refresh failed:', err.message);
+            setRefreshingRelationships('lessons', false);
+          });
+      }
+      return;
+    }
+
+    const lessons = await fetchRelationshipLessonsData();
+    setCacheRelationships('lessons', lessons);
+    res.json(lessons);
+  } catch (error) {
+    console.error('Failed to fetch spiritual lessons:', error);
+    res.status(500).json({ error: 'Failed to fetch lessons', details: error.message });
   }
 });
 

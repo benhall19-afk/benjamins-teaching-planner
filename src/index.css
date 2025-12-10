@@ -49,6 +49,16 @@
   --purple-600: #9333ea;
   --purple-700: #7e22ce;
 
+  /* Navy palette (Relationships) */
+  --navy-50: #f0f4f8;
+  --navy-100: #d9e2ec;
+  --navy-200: #bcccdc;
+  --navy-300: #9fb3c8;
+  --navy-400: #829ab1;
+  --navy-500: #627d98;
+  --navy-600: #486581;
+  --navy-700: #334e68;
+
   /* Theme-aware variables (defaults to sage) */
   --theme-50: var(--sage-50);
   --theme-100: var(--sage-100);
@@ -94,6 +104,18 @@
   --theme-500: var(--purple-500);
   --theme-600: var(--purple-600);
   --theme-700: var(--purple-700);
+}
+
+/* Navy theme (Relationships) */
+[data-theme="navy"] {
+  --theme-50: var(--navy-50);
+  --theme-100: var(--navy-100);
+  --theme-200: var(--navy-200);
+  --theme-300: var(--navy-300);
+  --theme-400: var(--navy-400);
+  --theme-500: var(--navy-500);
+  --theme-600: var(--navy-600);
+  --theme-700: var(--navy-700);
 }
 
 /* ============================================
@@ -812,6 +834,11 @@ h1, h2, h3, h4, h5, h6 {
 .event-card-purple {
   border-left: 3px solid var(--purple-500);
   background: linear-gradient(90deg, rgba(168, 85, 247, 0.08) 0%, transparent 100%);
+}
+
+.event-card-navy {
+  border-left: 3px solid var(--navy-500);
+  background: linear-gradient(90deg, rgba(98, 125, 152, 0.08) 0%, transparent 100%);
 }
 
 /* Mobile Bottom Navigation */

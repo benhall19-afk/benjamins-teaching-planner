@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle, isEnglishClassPrepared, getEnglishClassDisplayTitle } from '../viewConfig';
+import { isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle, isEnglishClassPrepared, getEnglishClassDisplayTitle, isRelationshipMeetupPrepared, getRelationshipMeetupDisplayTitle } from '../viewConfig';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -41,6 +41,7 @@ export default function WeeklyCalendar({
   sermons = [],
   devotions = [],
   englishClasses = [],
+  relationshipMeetups = [],
   currentDate,
   onDateChange,
   onEventClick,
@@ -108,8 +109,23 @@ export default function WeeklyCalendar({
       }
     });
 
+    // Add relationship meetups
+    relationshipMeetups.forEach(meetup => {
+      const date = meetup.when;
+      if (date) {
+        const key = date.split('T')[0];
+        if (!map[key]) map[key] = [];
+        map[key].push({
+          ...meetup,
+          source: 'relationship',
+          isPrepared: isRelationshipMeetupPrepared(meetup),
+          displayTitle: getRelationshipMeetupDisplayTitle(meetup),
+        });
+      }
+    });
+
     return map;
-  }, [sermons, devotions, englishClasses]);
+  }, [sermons, devotions, englishClasses, relationshipMeetups]);
 
   const navigateWeek = (direction) => {
     const newDate = new Date(currentDate);
@@ -227,7 +243,7 @@ export default function WeeklyCalendar({
                       onClick={() => onEventClick?.(event)}
                       className={`
                         relative p-2 rounded-lg cursor-grab active:cursor-grabbing transition-all hover:shadow-md
-                        ${event.source === 'sermon' ? 'event-card-sage' : event.source === 'devotion' ? 'event-card-amber' : 'event-card-purple'}
+                        ${event.source === 'sermon' ? 'event-card-sage' : event.source === 'devotion' ? 'event-card-amber' : event.source === 'english' ? 'event-card-purple' : 'event-card-navy'}
                         ${draggedEvent?.id === event.id ? 'opacity-50' : ''}
                       `}
                     >
@@ -238,9 +254,11 @@ export default function WeeklyCalendar({
                             ? 'bg-sage-200 text-sage-700'
                             : event.source === 'devotion'
                             ? 'bg-amber-200 text-amber-700'
-                            : 'bg-purple-200 text-purple-700'
+                            : event.source === 'english'
+                            ? 'bg-purple-200 text-purple-700'
+                            : 'bg-navy-200 text-navy-700'
                         }`}>
-                          {event.source === 'sermon' ? 'Sermon' : event.source === 'devotion' ? 'Devotion' : 'English'}
+                          {event.source === 'sermon' ? 'Sermon' : event.source === 'devotion' ? 'Devotion' : event.source === 'english' ? 'English' : 'Relationship'}
                         </span>
                         {event.isPrepared && (
                           <span className="text-[10px]" title="Prepared">⭐</span>
@@ -257,6 +275,7 @@ export default function WeeklyCalendar({
                         {event.source === 'sermon' && (event.preacher || event.primary_text || '')}
                         {event.source === 'devotion' && (event.day ? (String(event.day).toLowerCase().startsWith('day') ? event.day : `Day ${event.day}`) : '')}
                         {event.source === 'english' && (event.series_title || '')}
+                        {event.source === 'relationship' && (event.who?.map(w => w.title || w.name).join(', ') || '')}
                       </div>
                     </div>
                   ))}
@@ -318,6 +337,10 @@ export default function WeeklyCalendar({
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded bg-purple-400" />
           <span className="text-xs text-ink/60">English</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded bg-navy-400" />
+          <span className="text-xs text-ink/60">Relationships</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs">⭐</span>

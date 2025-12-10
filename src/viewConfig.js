@@ -33,6 +33,16 @@ export const VIEWS = {
     primaryActionLabel: 'Plan This Month',
     emptyMessage: 'No classes scheduled for this month',
   },
+  relationships: {
+    id: 'relationships',
+    name: 'Relationships',
+    icon: '☕',
+    theme: 'navy',
+    layout: 'monthly',
+    primaryAction: null,
+    primaryActionLabel: null,
+    emptyMessage: 'No meetups scheduled for this month',
+  },
   combined: {
     id: 'combined',
     name: 'This Week',
@@ -45,7 +55,7 @@ export const VIEWS = {
   },
 };
 
-export const VIEW_ORDER = ['sermons', 'devotions', 'english', 'combined'];
+export const VIEW_ORDER = ['sermons', 'devotions', 'english', 'relationships', 'combined'];
 
 /**
  * Check if a sermon is prepared/ready
@@ -130,6 +140,60 @@ export function isEnglishClassCancelled(englishClass) {
  */
 export function getEnglishClassDisplayTitle(englishClass) {
   return englishClass?.title || 'Untitled Class';
+}
+
+/**
+ * Check if a relationship meetup is prepared (shows star indicator)
+ * @param {Object} meetup - Relationship meetup object
+ * @returns {boolean}
+ */
+export function isRelationshipMeetupPrepared(meetup) {
+  const prepared = meetup?.prepared?.toLowerCase() || '';
+  return prepared === 'prepared';
+}
+
+/**
+ * Get display title for a relationship meetup
+ * @param {Object} meetup - Relationship meetup object
+ * @returns {string}
+ */
+export function getRelationshipMeetupDisplayTitle(meetup) {
+  // If there's a title, use it
+  if (meetup?.title) return meetup.title;
+  // Otherwise, use the first person's name
+  if (meetup?.who && meetup.who.length > 0) {
+    const names = meetup.who.map(w => w.title || w.name).filter(Boolean);
+    return names.join(', ') || 'Untitled Meetup';
+  }
+  return 'Untitled Meetup';
+}
+
+/**
+ * Calculate days since a given date
+ * @param {string} dateString - ISO date string
+ * @returns {number|null}
+ */
+export function daysSince(dateString) {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  const diffTime = today - date;
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+/**
+ * Format days since as a human-readable string
+ * @param {number|null} days - Number of days
+ * @returns {string}
+ */
+export function formatDaysSince(days) {
+  if (days === null || days === undefined) return '-';
+  if (days === 0) return 'today';
+  if (days === 1) return '1 day ago';
+  return `${days} days ago`;
 }
 
 export default VIEWS;
