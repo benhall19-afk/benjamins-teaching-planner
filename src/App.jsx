@@ -717,7 +717,7 @@ export default function App() {
   const [addMeetupContact, setAddMeetupContact] = useState(null);
   const [editingMeetup, setEditingMeetup] = useState(null);
   // Accordion state for contact sections: 'disciple' | 'family' | 'supporting-pastor' | null
-  const [openContactSection, setOpenContactSection] = useState('disciple');
+  const [openContactSection, setOpenContactSection] = useState(null);
 
   // Unscheduled sermons sidebar
   const [showUnscheduled, setShowUnscheduled] = useState(false);
