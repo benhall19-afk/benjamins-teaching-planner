@@ -314,7 +314,7 @@ export default function WeeklyCalendar({
                         Planning...
                       </span>
                     ) : (
-                      '📋 Plan out this day'
+                      '📋 Plan Today'
                     )}
                   </button>
                 )}
