@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle, isEnglishClassPrepared, getEnglishClassDisplayTitle, isRelationshipMeetupPrepared, getRelationshipMeetupDisplayTitle } from '../viewConfig';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -54,6 +54,24 @@ export default function WeeklyCalendar({
 }) {
   const [planningDay, setPlanningDay] = useState(null);
   const weekDates = useMemo(() => getWeekDates(currentDate), [currentDate]);
+
+  // Refs for scrolling to today
+  const scrollContainerRef = useRef(null);
+  const todayCardRef = useRef(null);
+
+  // Scroll to center today's card on mount and when week changes
+  useEffect(() => {
+    if (scrollContainerRef.current && todayCardRef.current) {
+      const container = scrollContainerRef.current;
+      const todayCard = todayCardRef.current;
+      const containerWidth = container.offsetWidth;
+      const cardLeft = todayCard.offsetLeft;
+      const cardWidth = todayCard.offsetWidth;
+      // Calculate scroll position to center the card
+      const scrollTo = cardLeft - (containerWidth / 2) + (cardWidth / 2);
+      container.scrollTo({ left: scrollTo, behavior: 'smooth' });
+    }
+  }, [currentDate]);
 
   const today = new Date();
   const todayKey = formatDateKey(today);
@@ -171,7 +189,7 @@ export default function WeeklyCalendar({
       </div>
 
       {/* Horizontal Scrollable Week Layout */}
-      <div className="overflow-x-auto pb-2 -mx-4 px-4">
+      <div ref={scrollContainerRef} className="overflow-x-auto pb-2 -mx-4 px-4">
         <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
           {weekDates.map((date, index) => {
             const dateKey = formatDateKey(date);
@@ -192,6 +210,7 @@ export default function WeeklyCalendar({
             return (
               <div
                 key={dateKey}
+                ref={isToday ? todayCardRef : null}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => onDayDrop?.(dateKey)}
                 className={`flex-shrink-0 w-44 bg-white/60 rounded-xl p-3 ${
