@@ -7,7 +7,7 @@ import {
   LESSON_TYPE_OPTIONS, PREACHERS, SPECIAL_EVENTS,
   MONTH_NAMES, DAY_NAMES, getAllHashtags
 } from './constants';
-import { VIEWS, isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle, isEnglishClassPrepared, isEnglishClassCompleted, getEnglishClassDisplayTitle } from './viewConfig';
+import { VIEWS, isSermonPrepared, isDevotionPrepared, getDevotionDisplayTitle, isEnglishClassPrepared, isEnglishClassCompleted, getEnglishClassDisplayTitle, isRelationshipMeetupPrepared, getRelationshipMeetupDisplayTitle, daysSince, formatDaysSince } from './viewConfig';
 import ViewSwitcher from './components/ViewSwitcher';
 import ItemDetailPopup from './components/ItemDetailPopup';
 import PlanMonthModal from './components/PlanMonthModal';
@@ -704,6 +704,20 @@ export default function App() {
   const [showAddDevotionModal, setShowAddDevotionModal] = useState(false);
   const [addDevotionDate, setAddDevotionDate] = useState(null);
 
+  // Relationships data state
+  const [relationshipMeetups, setRelationshipMeetups] = useState([]);
+  const [discipleContacts, setDiscipleContacts] = useState([]);
+  const [familyContacts, setFamilyContacts] = useState([]);
+  const [supportingPastorContacts, setSupportingPastorContacts] = useState([]);
+  const [spiritualLessons, setSpiritualLessons] = useState([]);
+  const [relationshipsLoading, setRelationshipsLoading] = useState(false);
+  const [selectedMeetup, setSelectedMeetup] = useState(null);
+  const [showAddMeetupModal, setShowAddMeetupModal] = useState(false);
+  const [addMeetupDate, setAddMeetupDate] = useState(null);
+  const [addMeetupContact, setAddMeetupContact] = useState(null);
+  // Accordion state for contact sections: 'disciple' | 'family' | 'supporting-pastor' | null
+  const [openContactSection, setOpenContactSection] = useState('disciple');
+
   // Unscheduled sermons sidebar
   const [showUnscheduled, setShowUnscheduled] = useState(false);
 
@@ -832,6 +846,33 @@ export default function App() {
     setEnglishLoading(false);
   }
 
+  // Load Relationships data on demand
+  async function loadRelationships(forceRefresh = false) {
+    if (!forceRefresh && relationshipMeetups.length > 0) return; // Already loaded
+    setRelationshipsLoading(true);
+    try {
+      const [meetupsData, disciplesData, familyData, supportingPastorData, lessonsData] = await Promise.all([
+        api.fetchRelationshipMeetups().catch((e) => { console.error('Failed to fetch meetups:', e); return []; }),
+        api.fetchDiscipleContacts(forceRefresh).catch((e) => { console.error('Failed to fetch disciples:', e); return []; }),
+        api.fetchFamilyContacts(forceRefresh).catch((e) => { console.error('Failed to fetch family:', e); return []; }),
+        api.fetchSupportingPastorContacts(forceRefresh).catch((e) => { console.error('Failed to fetch supporting pastors:', e); return []; }),
+        api.fetchSpiritualLessons().catch((e) => { console.error('Failed to fetch lessons:', e); return []; })
+      ]);
+      setRelationshipMeetups(meetupsData);
+      setDiscipleContacts(disciplesData);
+      setFamilyContacts(familyData);
+      setSupportingPastorContacts(supportingPastorData);
+      setSpiritualLessons(lessonsData);
+      if (forceRefresh) {
+        showToast('Contacts refreshed!', 'success');
+      }
+    } catch (err) {
+      console.error('loadRelationships error:', err);
+      showToast('Could not load relationships data.', 'error');
+    }
+    setRelationshipsLoading(false);
+  }
+
   // Load data when switching views
   useEffect(() => {
     if (currentView === 'devotions' || currentView === 'combined') {
@@ -839,6 +880,9 @@ export default function App() {
     }
     if (currentView === 'english' || currentView === 'combined') {
       loadEnglish();
+    }
+    if (currentView === 'relationships' || currentView === 'combined') {
+      loadRelationships();
     }
   }, [currentView]);
 
@@ -1184,6 +1228,16 @@ export default function App() {
       events.push(...english);
     }
 
+    // Get relationship meetups (for 'relationships' and 'combined' views)
+    if (currentView === 'relationships' || currentView === 'combined') {
+      const meetups = relationshipMeetups.filter(item => {
+        if (!item.when) return false;
+        const itemDate = item.when.split('T')[0];
+        return itemDate === dateStr;
+      }).map(item => ({ ...item, source: 'relationship' }));
+      events.push(...meetups);
+    }
+
     return events;
   };
 
@@ -1363,8 +1417,61 @@ export default function App() {
     setIsSaving(false);
   };
 
+  const handleAddMeetup = async (newMeetup) => {
+    setIsSaving(true);
+    try {
+      const result = await api.addRelationshipMeetup(newMeetup);
+
+      // Add to local state
+      const addedMeetup = {
+        ...newMeetup,
+        id: result.result?.id || `temp_${Date.now()}`,
+        source: 'relationship'
+      };
+      setRelationshipMeetups(prev => [...prev, addedMeetup]);
+      setShowAddMeetupModal(false);
+      setAddMeetupContact(null);
+      showToast('Meetup added!', 'success');
+    } catch (err) {
+      showToast('Failed to add meetup: ' + err.message, 'error');
+    }
+    setIsSaving(false);
+  };
+
+  const handleUpdateMeetup = async (meetupId, updates) => {
+    try {
+      await api.updateRelationshipMeetup(meetupId, updates);
+      setRelationshipMeetups(prev =>
+        prev.map(m => m.id === meetupId ? { ...m, ...updates } : m)
+      );
+      showToast('Meetup updated!', 'success');
+    } catch (err) {
+      showToast('Failed to update meetup: ' + err.message, 'error');
+    }
+  };
+
+  const handleDeleteMeetup = async (meetupId) => {
+    try {
+      await api.deleteRelationshipMeetup(meetupId);
+      setRelationshipMeetups(prev => prev.filter(m => m.id !== meetupId));
+      setSelectedMeetup(null);
+      showToast('Meetup deleted!', 'success');
+    } catch (err) {
+      showToast('Failed to delete meetup: ' + err.message, 'error');
+    }
+  };
+
   const handleDrop = async (newDate) => {
     if (!draggedEvent) return;
+
+    // Check if this is a contact drop (for creating new meetup)
+    if (draggedEvent.type === 'contact') {
+      setAddMeetupDate(newDate);
+      setAddMeetupContact(draggedEvent.contact);
+      setShowAddMeetupModal(true);
+      setDraggedEvent(null);
+      return;
+    }
 
     // Check event type
     const isDevotionDrag = draggedEvent.source === 'devotion' || (draggedEvent.scheduled_date !== undefined && !draggedEvent.class_date);
@@ -1755,8 +1862,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Series Timeline - integrated into header, only on Calendar tab (not for combined view) */}
-          {activeTab === 'calendar' && currentView !== 'combined' && (
+          {/* Series Timeline - integrated into header, only on Calendar tab (not for combined or relationships view) */}
+          {activeTab === 'calendar' && currentView !== 'combined' && currentView !== 'relationships' && (
             <div className="border-t border-sage/10">
               {/* Toggle Header */}
               <div className="px-4 sm:px-6 py-2 flex items-center justify-between">
@@ -1863,6 +1970,197 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* Contact Sections Accordion - only for relationships view */}
+          {activeTab === 'calendar' && currentView === 'relationships' && (() => {
+            // Helper to get days since last contact for a contact
+            const getDaysSinceContact = (contact) => {
+              const lastMeetup = relationshipMeetups
+                .filter(m => m.who?.some(w => w.blockId === contact.id))
+                .sort((a, b) => new Date(b.when) - new Date(a.when))[0];
+              return lastMeetup?.when ? daysSince(lastMeetup.when) : null;
+            };
+
+            // Sort contacts by oldest last-contacted (null/never contacted first, then highest days)
+            const sortByOldestContact = (contacts) => {
+              return [...contacts].sort((a, b) => {
+                const aDays = getDaysSinceContact(a);
+                const bDays = getDaysSinceContact(b);
+                // null (never contacted) comes first, then sort by most days
+                if (aDays === null && bDays === null) return 0;
+                if (aDays === null) return -1;
+                if (bDays === null) return 1;
+                return bDays - aDays; // Higher days (older) first
+              });
+            };
+
+            // Render a contact pill
+            const renderContactPill = (contact) => {
+              const days = getDaysSinceContact(contact);
+              return (
+                <div
+                  key={contact.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('contact', JSON.stringify(contact));
+                    setDraggedEvent({ type: 'contact', contact });
+                  }}
+                  onDragEnd={() => setDraggedEvent(null)}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-navy/5 hover:bg-navy/10 cursor-grab text-xs text-ink/80 transition-colors"
+                >
+                  <span>👤</span>
+                  <span>{contact.name}</span>
+                  <span className="text-ink/40">
+                    ({days !== null ? (days === 0 ? 'today' : `${days}d`) : '-'})
+                  </span>
+                </div>
+              );
+            };
+
+            // Toggle accordion section (only one open at a time)
+            const toggleSection = (section) => {
+              setOpenContactSection(prev => prev === section ? null : section);
+            };
+
+            // Sorted contact lists
+            const sortedDisciples = sortByOldestContact(discipleContacts);
+            const sortedFamily = sortByOldestContact(familyContacts);
+            const sortedSupportingPastors = sortByOldestContact(supportingPastorContacts).slice(0, 5);
+
+            return (
+              <div className="border-t border-navy/10">
+                {/* Disciple Contacts Section */}
+                <div className="px-4 sm:px-6 py-2 flex items-center justify-between">
+                  <button
+                    onClick={() => toggleSection('disciple')}
+                    className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
+                  >
+                    <svg
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'disciple' ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <span className="font-medium uppercase tracking-wider text-xs">Disciple Contacts</span>
+                  </button>
+                  {openContactSection === 'disciple' && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => loadRelationships(true)}
+                        disabled={relationshipsLoading}
+                        className="w-6 h-6 rounded-full flex items-center justify-center transition-colors text-sm bg-navy/10 hover:bg-navy/20 text-navy-600 disabled:opacity-50"
+                        title="Refresh contacts"
+                      >
+                        <svg className={`w-3.5 h-3.5 ${relationshipsLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAddMeetupDate(null);
+                          setShowAddMeetupModal(true);
+                        }}
+                        className="w-6 h-6 rounded-full flex items-center justify-center transition-colors text-sm bg-navy/10 hover:bg-navy/20 text-navy-600"
+                        title="Add meetup"
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    openContactSection === 'disciple' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="px-4 sm:px-6 pb-3">
+                    <div className="flex flex-wrap gap-2">
+                      {sortedDisciples.map(renderContactPill)}
+                      {discipleContacts.length === 0 && !relationshipsLoading && (
+                        <p className="text-xs text-ink/40 italic">No disciple contacts found</p>
+                      )}
+                      {relationshipsLoading && (
+                        <p className="text-xs text-ink/40 italic">Loading contacts...</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Family Section */}
+                <div className="px-4 sm:px-6 py-2 flex items-center justify-between border-t border-navy/5">
+                  <button
+                    onClick={() => toggleSection('family')}
+                    className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
+                  >
+                    <svg
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'family' ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <span className="font-medium uppercase tracking-wider text-xs">Family</span>
+                  </button>
+                </div>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    openContactSection === 'family' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="px-4 sm:px-6 pb-3">
+                    <div className="flex flex-wrap gap-2">
+                      {sortedFamily.map(renderContactPill)}
+                      {familyContacts.length === 0 && !relationshipsLoading && (
+                        <p className="text-xs text-ink/40 italic">No family contacts found</p>
+                      )}
+                      {relationshipsLoading && (
+                        <p className="text-xs text-ink/40 italic">Loading contacts...</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Supporting Pastor Section */}
+                <div className="px-4 sm:px-6 py-2 flex items-center justify-between border-t border-navy/5">
+                  <button
+                    onClick={() => toggleSection('supporting-pastor')}
+                    className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
+                  >
+                    <svg
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'supporting-pastor' ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <span className="font-medium uppercase tracking-wider text-xs">Supporting Pastor</span>
+                    <span className="text-ink/40 text-xs">(top 5)</span>
+                  </button>
+                </div>
+                <div
+                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    openContactSection === 'supporting-pastor' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="px-4 sm:px-6 pb-3">
+                    <div className="flex flex-wrap gap-2">
+                      {sortedSupportingPastors.map(renderContactPill)}
+                      {supportingPastorContacts.length === 0 && !relationshipsLoading && (
+                        <p className="text-xs text-ink/40 italic">No supporting pastor contacts found</p>
+                      )}
+                      {relationshipsLoading && (
+                        <p className="text-xs text-ink/40 italic">Loading contacts...</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </header>
 
@@ -1878,6 +2176,7 @@ export default function App() {
                   sermons={schedule}
                   devotions={devotionLessons}
                   englishClasses={englishClasses}
+                  relationshipMeetups={relationshipMeetups}
                   currentDate={currentDate}
                   onDateChange={setCurrentDate}
                   onEventClick={(event) => {
@@ -1885,6 +2184,8 @@ export default function App() {
                       setSelectedDevotionLesson(event);
                     } else if (event.source === 'english') {
                       setSelectedEnglishClass(event);
+                    } else if (event.source === 'relationship') {
+                      setSelectedMeetup(event);
                     } else {
                       setSelectedSermon({ ...event });
                     }
@@ -2100,6 +2401,9 @@ export default function App() {
                                   } else if (currentView === 'devotions') {
                                     setAddDevotionDate(dateStr);
                                     setShowAddDevotionModal(true);
+                                  } else if (currentView === 'relationships') {
+                                    setAddMeetupDate(dateStr);
+                                    setShowAddMeetupModal(true);
                                   } else {
                                     setAddDate(dateStr);
                                     setShowAddModal(true);
@@ -2151,22 +2455,29 @@ export default function App() {
                                   // Determine display based on source
                                   const isDevotionItem = event.source === 'devotion';
                                   const isEnglishItem = event.source === 'english';
+                                  const isRelationshipItem = event.source === 'relationship';
                                   const lessonType = event.lesson_type || event.properties?.lesson_type;
                                   const name = isDevotionItem
                                     ? getDevotionDisplayTitle(event)
                                     : isEnglishItem
                                     ? getEnglishClassDisplayTitle(event)
+                                    : isRelationshipItem
+                                    ? getRelationshipMeetupDisplayTitle(event)
                                     : (event.sermon_name || event.properties?.sermon_name || event.title || lessonType || '—');
                                   const isPrepared = isDevotionItem
                                     ? isDevotionPrepared(event)
                                     : isEnglishItem
                                     ? isEnglishClassPrepared(event)
+                                    : isRelationshipItem
+                                    ? isRelationshipMeetupPrepared(event)
                                     : isPreparedSermon(event);
                                   const shouldDim = hidePrepared && isPrepared;
                                   const colorClass = isDevotionItem
                                     ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
                                     : isEnglishItem
                                     ? 'bg-purple-50 border-purple-300 text-purple-700 hover:bg-purple-100'
+                                    : isRelationshipItem
+                                    ? 'bg-navy-50 border-navy-300 text-navy-700 hover:bg-navy-100'
                                     : getLessonTypeColor(lessonType);
 
                                   const handleClick = () => {
@@ -2174,6 +2485,8 @@ export default function App() {
                                       setSelectedDevotionLesson(event);
                                     } else if (isEnglishItem) {
                                       setSelectedEnglishClass(event);
+                                    } else if (isRelationshipItem) {
+                                      setSelectedMeetup(event);
                                     } else {
                                       setSelectedSermon({ ...event });
                                     }
@@ -2816,6 +3129,22 @@ export default function App() {
         </Modal>
       )}
 
+      {/* Add Meetup Modal */}
+      {showAddMeetupModal && (
+        <Modal onClose={() => { setShowAddMeetupModal(false); setAddMeetupContact(null); }}>
+          <h3 className="font-medium uppercase tracking-wider text-xs text-navy-600 mb-4">Add Meetup</h3>
+          <AddMeetupForm
+            initialDate={addMeetupDate}
+            initialContact={addMeetupContact}
+            contacts={discipleContacts}
+            lessons={spiritualLessons}
+            onSave={handleAddMeetup}
+            onCancel={() => { setShowAddMeetupModal(false); setAddMeetupContact(null); }}
+            isSaving={isSaving}
+          />
+        </Modal>
+      )}
+
       {/* Add Entry Modal */}
       {showAddModal && (
         <Modal onClose={() => setShowAddModal(false)}>
@@ -2896,6 +3225,19 @@ export default function App() {
           setSelectedEnglishClass(null);
           setEditingEnglishClass({ ...item });
         }}
+      />
+
+      {/* Relationship Meetup Detail Popup */}
+      <ItemDetailPopup
+        item={selectedMeetup}
+        source="relationship"
+        isOpen={!!selectedMeetup}
+        onClose={() => setSelectedMeetup(null)}
+        onUpdate={handleUpdateMeetup}
+        onEdit={(item) => {
+          showToast('Edit functionality coming soon', 'info');
+        }}
+        onDelete={handleDeleteMeetup}
       />
 
       {/* Sermon Detail Popup */}
@@ -3502,6 +3844,159 @@ function ShiftForm({ onShift, onCancel, isSaving }) {
           className="w-full sm:flex-1 py-2.5 btn-glass text-sm sm:text-base"
         >
           Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AddMeetupForm({ initialDate, initialContact, contacts, lessons, onSave, onCancel, isSaving }) {
+  const [entry, setEntry] = useState({
+    title: '',
+    when: initialDate || '',
+    who: initialContact ? [{ blockId: initialContact.id, title: initialContact.name }] : [],
+    type: '1:1',
+    purpose: 'Fellowship',
+    lesson: null,
+    prepared: 'Scheduled',
+    notes: ''
+  });
+
+  const typeOptions = ['1:1', 'Group', 'Family'];
+  const purposeOptions = ['Discipleship', 'First Time', 'Fellowship', 'Relationship Building'];
+  const preparedOptions = ['Scheduled', 'Need to Print of Study', 'Prepared'];
+
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Title (optional)</label>
+        <input
+          type="text"
+          value={entry.title}
+          onChange={(e) => setEntry(prev => ({ ...prev, title: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+          placeholder="Meetup title..."
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Date</label>
+        <input
+          type="date"
+          value={entry.when}
+          onChange={(e) => setEntry(prev => ({ ...prev, when: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Who</label>
+        <select
+          value={entry.who[0]?.blockId || ''}
+          onChange={(e) => {
+            const contact = contacts.find(c => c.id === e.target.value);
+            if (contact) {
+              setEntry(prev => ({ ...prev, who: [{ blockId: contact.id, title: contact.name }] }));
+            } else {
+              setEntry(prev => ({ ...prev, who: [] }));
+            }
+          }}
+          className="w-full input-glass text-sm sm:text-base"
+        >
+          <option value="">Select contact...</option>
+          {contacts.map(contact => (
+            <option key={contact.id} value={contact.id}>{contact.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Type</label>
+          <select
+            value={entry.type}
+            onChange={(e) => setEntry(prev => ({ ...prev, type: e.target.value }))}
+            className="w-full input-glass text-sm sm:text-base"
+          >
+            {typeOptions.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Purpose</label>
+          <select
+            value={entry.purpose}
+            onChange={(e) => setEntry(prev => ({ ...prev, purpose: e.target.value }))}
+            className="w-full input-glass text-sm sm:text-base"
+          >
+            {purposeOptions.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Lesson (optional)</label>
+        <select
+          value={entry.lesson?.blockId || ''}
+          onChange={(e) => {
+            const lesson = lessons.find(l => l.id === e.target.value);
+            if (lesson) {
+              setEntry(prev => ({ ...prev, lesson: { blockId: lesson.id, title: lesson.title } }));
+            } else {
+              setEntry(prev => ({ ...prev, lesson: null }));
+            }
+          }}
+          className="w-full input-glass text-sm sm:text-base"
+        >
+          <option value="">No lesson</option>
+          {lessons.map(lesson => (
+            <option key={lesson.id} value={lesson.id}>{lesson.title}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Prepared</label>
+        <select
+          value={entry.prepared}
+          onChange={(e) => setEntry(prev => ({ ...prev, prepared: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+        >
+          {preparedOptions.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Notes (optional)</label>
+        <textarea
+          value={entry.notes}
+          onChange={(e) => setEntry(prev => ({ ...prev, notes: e.target.value }))}
+          className="w-full input-glass text-sm sm:text-base"
+          rows={3}
+          placeholder="Meetup notes..."
+        />
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 px-4 py-2.5 btn-glass text-sm"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onSave(entry)}
+          disabled={isSaving || !entry.when || entry.who.length === 0}
+          className="flex-1 px-4 py-2.5 text-white rounded-full text-sm font-medium transition-colors disabled:opacity-50"
+          style={{ backgroundColor: 'var(--navy-500)' }}
+        >
+          {isSaving ? 'Adding...' : 'Add Meetup'}
         </button>
       </div>
     </div>

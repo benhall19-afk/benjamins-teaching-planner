@@ -286,6 +286,71 @@ export async function planDay(date, items) {
 }
 
 // ============================================
+// RELATIONSHIPS API
+// ============================================
+
+export async function fetchRelationshipMeetups() {
+  const response = await fetch(`${API_BASE}/relationships/meetups`);
+  return handleResponse(response);
+}
+
+export async function addRelationshipMeetup(data) {
+  const response = await fetch(`${API_BASE}/relationships/meetups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  return handleResponse(response);
+}
+
+export async function updateRelationshipMeetup(id, updates) {
+  const response = await fetch(`${API_BASE}/relationships/meetups/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
+  });
+  return handleResponse(response);
+}
+
+export async function deleteRelationshipMeetup(id) {
+  const response = await fetch(`${API_BASE}/relationships/meetups/${id}`, {
+    method: 'DELETE'
+  });
+  return handleResponse(response);
+}
+
+export async function fetchDiscipleContacts(forceRefresh = false) {
+  const params = new URLSearchParams({ tag: 'Disciple' });
+  if (forceRefresh) params.append('refresh', 'true');
+  const response = await fetch(`${API_BASE}/relationships/contacts?${params}`);
+  return handleResponse(response);
+}
+
+export async function fetchFamilyContacts(forceRefresh = false) {
+  const params = new URLSearchParams({ tag: 'Family' });
+  if (forceRefresh) params.append('refresh', 'true');
+  const response = await fetch(`${API_BASE}/relationships/contacts?${params}`);
+  return handleResponse(response);
+}
+
+export async function fetchSupportingPastorContacts(forceRefresh = false) {
+  const params = new URLSearchParams({ tag: 'Supporting Pastor' });
+  if (forceRefresh) params.append('refresh', 'true');
+  const response = await fetch(`${API_BASE}/relationships/contacts?${params}`);
+  return handleResponse(response);
+}
+
+export async function fetchAllContacts() {
+  const response = await fetch(`${API_BASE}/relationships/contacts`);
+  return handleResponse(response);
+}
+
+export async function fetchSpiritualLessons() {
+  const response = await fetch(`${API_BASE}/relationships/lessons`);
+  return handleResponse(response);
+}
+
+// ============================================
 // HEALTH CHECK
 // ============================================
 
