@@ -2568,16 +2568,16 @@ export default function App() {
                                     : isPreparedSermon(event);
                                   const shouldDim = hidePrepared && isPrepared;
                                   // For relationship items, determine color based on contact's tag group
-                                  // Check for Alyssa by name in who array OR by looking up contact from lists
+                                  // Check for Alyssa by name (includes "alyssa" since full name is "Alyssa Hall")
                                   const isAlyssaMeetup = isRelationshipItem && event.who?.some(w => {
                                     const nameFromWho = (w.title || w.name || '').toLowerCase();
-                                    if (nameFromWho === 'alyssa') return true;
+                                    if (nameFromWho.includes('alyssa')) return true;
                                     // Also look up the contact from the lists to check name
                                     const contact = discipleContacts.find(c => c.id === w.blockId) ||
                                                     familyContacts.find(c => c.id === w.blockId) ||
                                                     supportingPastorContacts.find(c => c.id === w.blockId);
                                     const nameFromContact = (contact?.title || contact?.name || '').toLowerCase();
-                                    return nameFromContact === 'alyssa';
+                                    return nameFromContact.includes('alyssa');
                                   });
                                   const isFamilyMeetup = isRelationshipItem && !isAlyssaMeetup && event.who?.some(w =>
                                     familyContacts.some(c => c.id === w.blockId)
