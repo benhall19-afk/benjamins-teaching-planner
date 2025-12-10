@@ -2253,29 +2253,6 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-
-                {/* Color Legend */}
-                <div className="px-4 sm:px-6 py-2 border-t border-navy/10">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="font-medium uppercase tracking-wider text-[10px] text-ink/40">Legend</span>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-navy-50 border border-navy-200" />
-                      <span className="text-[10px] text-ink/60">Disciple</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-teal-50 border border-teal-200" />
-                      <span className="text-[10px] text-ink/60">Family</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-violet-50 border border-violet-200" />
-                      <span className="text-[10px] text-ink/60">Pastor</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full bg-pink-50 border border-pink-200" />
-                      <span className="text-[10px] text-ink/60">Alyssa</span>
-                    </div>
-                  </div>
-                </div>
               </div>
             );
           })()}
@@ -2825,6 +2802,33 @@ export default function App() {
                     <span className="text-ink/70">Prepared</span>
                   </div>
                 </div>
+              )}
+
+              {/* Relationships View Footer */}
+              {currentView === 'relationships' && (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium uppercase tracking-wider text-[10px] text-ink/50">Legend</span>
+                  </div>
+                  <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-navy-50 border border-navy-200" />
+                      <span className="text-ink/70">Disciple</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-teal-50 border border-teal-200" />
+                      <span className="text-ink/70">Family</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-violet-50 border border-violet-200" />
+                      <span className="text-ink/70">Pastor</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded bg-pink-50 border border-pink-200" />
+                      <span className="text-ink/70">Alyssa</span>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
             </>
