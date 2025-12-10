@@ -2074,9 +2074,24 @@ export default function App() {
               });
             };
 
-            // Render a contact pill
-            const renderContactPill = (contact) => {
+            // Color classes for contact types
+            const contactColors = {
+              disciple: 'bg-navy-50 hover:bg-navy-100 border-navy-200',
+              family: 'bg-teal-50 hover:bg-teal-100 border-teal-200',
+              'supporting-pastor': 'bg-violet-50 hover:bg-violet-100 border-violet-200',
+              alyssa: 'bg-pink-50 hover:bg-pink-100 border-pink-200'
+            };
+
+            // Check if contact is Alyssa (case-insensitive)
+            const isAlyssa = (contact) => contact.name?.toLowerCase() === 'alyssa';
+
+            // Render a contact pill with type-based color
+            const renderContactPill = (contact, type) => {
               const days = getDaysSinceContact(contact);
+              // Alyssa gets special pink color regardless of which section she's in
+              const colorType = isAlyssa(contact) ? 'alyssa' : type;
+              const colorClass = contactColors[colorType] || contactColors.disciple;
+
               return (
                 <div
                   key={contact.id}
@@ -2086,7 +2101,7 @@ export default function App() {
                     setDraggedEvent({ type: 'contact', contact });
                   }}
                   onDragEnd={() => setDraggedEvent(null)}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-navy/5 hover:bg-navy/10 cursor-grab text-xs text-ink/80 transition-colors"
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full border cursor-grab text-xs text-ink/80 transition-colors ${colorClass}`}
                 >
                   <span>👤</span>
                   <span>{contact.name}</span>
@@ -2157,7 +2172,7 @@ export default function App() {
                 >
                   <div className="px-4 sm:px-6 pb-3">
                     <div className="flex flex-wrap gap-2">
-                      {sortedDisciples.map(renderContactPill)}
+                      {sortedDisciples.map(c => renderContactPill(c, 'disciple'))}
                       {discipleContacts.length === 0 && !relationshipsLoading && (
                         <p className="text-xs text-ink/40 italic">No disciple contacts found</p>
                       )}
@@ -2192,7 +2207,7 @@ export default function App() {
                 >
                   <div className="px-4 sm:px-6 pb-3">
                     <div className="flex flex-wrap gap-2">
-                      {sortedFamily.map(renderContactPill)}
+                      {sortedFamily.map(c => renderContactPill(c, 'family'))}
                       {familyContacts.length === 0 && !relationshipsLoading && (
                         <p className="text-xs text-ink/40 italic">No family contacts found</p>
                       )}
@@ -2228,13 +2243,36 @@ export default function App() {
                 >
                   <div className="px-4 sm:px-6 pb-3">
                     <div className="flex flex-wrap gap-2">
-                      {sortedSupportingPastors.map(renderContactPill)}
+                      {sortedSupportingPastors.map(c => renderContactPill(c, 'supporting-pastor'))}
                       {supportingPastorContacts.length === 0 && !relationshipsLoading && (
                         <p className="text-xs text-ink/40 italic">No supporting pastor contacts found</p>
                       )}
                       {relationshipsLoading && (
                         <p className="text-xs text-ink/40 italic">Loading contacts...</p>
                       )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Color Legend */}
+                <div className="px-4 sm:px-6 py-2 border-t border-navy/10">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-medium uppercase tracking-wider text-[10px] text-ink/40">Legend</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-navy-50 border border-navy-200" />
+                      <span className="text-[10px] text-ink/60">Disciple</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-teal-50 border border-teal-200" />
+                      <span className="text-[10px] text-ink/60">Family</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-violet-50 border border-violet-200" />
+                      <span className="text-[10px] text-ink/60">Pastor</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-pink-50 border border-pink-200" />
+                      <span className="text-[10px] text-ink/60">Alyssa</span>
                     </div>
                   </div>
                 </div>
