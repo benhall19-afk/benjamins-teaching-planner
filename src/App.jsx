@@ -785,7 +785,7 @@ export default function App() {
   const handleViewChange = (newView) => {
     setCurrentView(newView);
     // Views without review option should default to calendar tab
-    if (newView === 'devotions' || newView === 'english') {
+    if (newView === 'devotions' || newView === 'english' || newView === 'combined') {
       setActiveTab('calendar');
     }
   };
@@ -1927,9 +1927,9 @@ export default function App() {
           <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-sage/10">
             <ViewSwitcher currentView={currentView} onViewChange={handleViewChange} />
 
-            {/* Tab Switcher - Hidden on mobile, shown on md+, hidden for devotions/english */}
-            {currentView !== 'devotions' && currentView !== 'english' && (
-            <div className="hidden md:flex toggle-glass-container">
+            {/* Tab Switcher - Emojis on mobile, text on desktop, hidden for devotions/english/combined */}
+            {currentView !== 'devotions' && currentView !== 'english' && currentView !== 'combined' && (
+            <div className="flex toggle-glass-container">
               {/* Sliding indicator */}
               <div
                 className="toggle-glass-indicator"
@@ -1942,22 +1942,24 @@ export default function App() {
                 onClick={() => setActiveTab('calendar')}
                 className={`toggle-glass-btn ${activeTab === 'calendar' ? 'active' : ''}`}
               >
-                Calendar
+                <span className="md:hidden text-lg">📅</span>
+                <span className="hidden md:inline">Calendar</span>
               </button>
               <button
                 onClick={() => setActiveTab('review')}
                 className={`toggle-glass-btn flex items-center ${activeTab === 'review' ? 'active' : ''}`}
               >
-                Review
+                <span className="md:hidden text-lg">📝</span>
+                <span className="hidden md:inline">Review</span>
                 {currentView === 'relationships' ? (
                   meetupsNeedingReview.length > 0 && (
-                    <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full ml-2">
+                    <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full ml-1 md:ml-2">
                       {meetupsNeedingReview.length}
                     </span>
                   )
                 ) : (
                   sermonsNeedingInfo.length > 0 && (
-                    <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full ml-2">
+                    <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full ml-1 md:ml-2">
                       {sermonsNeedingInfo.length}
                     </span>
                   )
@@ -2883,7 +2885,7 @@ export default function App() {
 
         {/* Review Tab */}
         {activeTab === 'review' && (
-          <div className="glass-card p-3 sm:p-6 mb-4 sm:mb-6 animate-card-in">
+          <div className="glass-card p-3 sm:p-6 mb-4 sm:mb-6 animate-card-in overflow-hidden">
             {currentView === 'relationships' ? (
               /* Relationship Meetup Review */
               meetupsNeedingReview.length === 0 ? (
@@ -3054,30 +3056,30 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-stretch">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-stretch overflow-hidden">
                   {/* Sermon Info */}
-                  <div className="bg-parchment/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gold/20 flex flex-col max-h-[50vh] sm:max-h-[calc(100vh-250px)]">
+                  <div className="bg-parchment/50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-gold/20 flex flex-col max-h-[50vh] sm:max-h-[calc(100vh-250px)] min-w-0 overflow-hidden">
                     <h3 className="font-display font-semibold text-base sm:text-lg text-ink mb-2 sm:mb-3">
                       {currentSermon.sermon_name || currentSermon.title || currentSermon.properties?.sermon_name}
                     </h3>
-                    <div className="text-sm text-ink/70 flex-1 overflow-y-auto overflow-x-hidden pr-2">
+                    <div className="text-sm text-ink/70 flex-1 overflow-y-auto overflow-x-hidden pr-2 break-words [overflow-wrap:anywhere] [word-break:break-word] min-w-0">
                       <Markdown
                         remarkPlugins={[remarkGfm]}
                         components={{
                           a: ({node, ...props}) => <a {...props} className="text-burgundy hover:underline break-words" target="_blank" rel="noopener noreferrer" />,
                           img: () => null,
-                          h1: ({node, ...props}) => <h1 {...props} className="text-lg font-bold mt-3 mb-2" />,
-                          h2: ({node, ...props}) => <h2 {...props} className="text-base font-bold mt-3 mb-2" />,
-                          h3: ({node, ...props}) => <h3 {...props} className="text-sm font-bold mt-2 mb-1" />,
-                          h4: ({node, ...props}) => <h4 {...props} className="text-sm font-semibold mt-2 mb-1 text-burgundy" />,
-                          h5: ({node, ...props}) => <h5 {...props} className="text-sm font-medium mt-2 mb-1" />,
-                          h6: ({node, ...props}) => <h6 {...props} className="text-xs font-medium mt-2 mb-1" />,
-                          p: ({node, ...props}) => <p {...props} className="mb-2 break-words" />,
-                          ul: ({node, ...props}) => <ul {...props} className="list-disc pl-4 mb-2" />,
-                          ol: ({node, ...props}) => <ol {...props} className="list-decimal pl-4 mb-2" />,
-                          li: ({node, ...props}) => <li {...props} className="mb-1" />,
+                          h1: ({node, ...props}) => <h1 {...props} className="text-lg font-bold mt-3 mb-2 break-words" />,
+                          h2: ({node, ...props}) => <h2 {...props} className="text-base font-bold mt-3 mb-2 break-words" />,
+                          h3: ({node, ...props}) => <h3 {...props} className="text-sm font-bold mt-2 mb-1 break-words" />,
+                          h4: ({node, ...props}) => <h4 {...props} className="text-sm font-semibold mt-2 mb-1 text-burgundy break-words" />,
+                          h5: ({node, ...props}) => <h5 {...props} className="text-sm font-medium mt-2 mb-1 break-words" />,
+                          h6: ({node, ...props}) => <h6 {...props} className="text-xs font-medium mt-2 mb-1 break-words" />,
+                          p: ({node, ...props}) => <p {...props} className="mb-2 break-words [overflow-wrap:anywhere]" />,
+                          ul: ({node, ...props}) => <ul {...props} className="list-disc pl-4 mb-2 break-words" />,
+                          ol: ({node, ...props}) => <ol {...props} className="list-decimal pl-4 mb-2 break-words" />,
+                          li: ({node, ...props}) => <li {...props} className="mb-1 break-words [overflow-wrap:anywhere]" />,
                           strong: ({node, ...props}) => <strong {...props} className="font-semibold" />,
-                          blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-2 border-burgundy/50 pl-3 italic my-2" />,
+                          blockquote: ({node, ...props}) => <blockquote {...props} className="border-l-2 border-burgundy/50 pl-3 italic my-2 break-words [overflow-wrap:anywhere]" />,
                           table: ({node, ...props}) => <table {...props} className="w-full border-collapse my-3 text-xs" />,
                           thead: ({node, ...props}) => <thead {...props} className="bg-sage-100" />,
                           tbody: ({node, ...props}) => <tbody {...props} />,
@@ -3094,8 +3096,14 @@ export default function App() {
                           .replace(/<[^>]+>/g, '')
                           .replace(/\*{4,}/g, '**')
                           .replace(/\*\*\s*\*\*/g, '')
+                          .replace(/\*\*\s+/g, '**')
+                          .replace(/\s+\*\*/g, '**')
                           .replace(/^-\s+(#{1,6})\s+/gm, '$1 ')
                           .replace(/^\s*-\s+(#{1,6})\s+/gm, '$1 ')
+                          // Fix list items followed by bold (need space after dash)
+                          .replace(/^(\s*)-\*\*/gm, '$1- **')
+                          // Fix blockquotes followed by bold (need space after >)
+                          .replace(/^(\s*)>\*\*/gm, '$1> **')
                         }
                       </Markdown>
                     </div>
@@ -3627,48 +3635,6 @@ export default function App() {
         onDeleteHoliday={deleteCustomHoliday}
       />
 
-      {/* Mobile Bottom Navigation - Only visible on mobile, hidden when modal is open */}
-      {!editingEntry && !showAddModal && !showShiftModal && !selectedDevotionLesson && !selectedSermon && !showPlanMonthModal && (
-      <nav className="mobile-bottom-nav md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
-        <div className="flex items-center gap-1 bg-slate-900/95 backdrop-blur-lg rounded-full px-2 py-2 shadow-2xl">
-          <button
-            onClick={() => setActiveTab('calendar')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all ${
-              activeTab === 'calendar'
-                ? 'bg-slate-700/80 text-white'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span className="text-base">📅</span>
-            <span>Calendar</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('review')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all ${
-              activeTab === 'review'
-                ? 'bg-slate-700/80 text-white'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <span className="text-base">📝</span>
-            <span>Review</span>
-            {currentView === 'relationships' ? (
-              meetupsNeedingReview.length > 0 && (
-                <span className="bg-sage-500 text-white text-xs px-1.5 py-0.5 rounded-full ml-0.5">
-                  {meetupsNeedingReview.length}
-                </span>
-              )
-            ) : (
-              sermonsNeedingInfo.length > 0 && (
-                <span className="bg-sage-500 text-white text-xs px-1.5 py-0.5 rounded-full ml-0.5">
-                  {sermonsNeedingInfo.length}
-                </span>
-              )
-            )}
-          </button>
-        </div>
-      </nav>
-      )}
 
       {/* Toast */}
       {toast && (
