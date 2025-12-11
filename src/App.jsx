@@ -719,6 +719,8 @@ export default function App() {
   const [editingMeetup, setEditingMeetup] = useState(null);
   // Accordion state for contact sections: 'disciple' | 'family' | 'supporting-pastor' | null
   const [openContactSection, setOpenContactSection] = useState(null);
+  // Toggle to show/hide entire contacts section
+  const [showContactsSection, setShowContactsSection] = useState(false);
 
   // Unscheduled sermons sidebar
   const [showUnscheduled, setShowUnscheduled] = useState(false);
@@ -774,6 +776,19 @@ export default function App() {
     openManagement,
     closeManagement,
   } = useHolidays(currentDate);
+
+  // ============================================
+  // VIEW CHANGE HANDLER
+  // ============================================
+
+  // Handle view changes - auto-switch to calendar tab for views without review option
+  const handleViewChange = (newView) => {
+    setCurrentView(newView);
+    // Views without review option should default to calendar tab
+    if (newView === 'devotions' || newView === 'english') {
+      setActiveTab('calendar');
+    }
+  };
 
   // ============================================
   // DATA LOADING
@@ -1910,35 +1925,39 @@ export default function App() {
         <div className="glass-card rounded-2xl overflow-hidden">
           {/* Top Navigation Bar */}
           <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-sage/10">
-            <ViewSwitcher currentView={currentView} onViewChange={setCurrentView} />
+            <ViewSwitcher currentView={currentView} onViewChange={handleViewChange} />
 
             {/* Tab Switcher - Hidden on mobile, shown on md+, hidden for devotions/english */}
             {currentView !== 'devotions' && currentView !== 'english' && (
-            <div className="hidden md:flex items-center gap-1 bg-sage-50/50 rounded-full p-1">
+            <div className="hidden md:flex toggle-glass-container">
+              {/* Sliding indicator */}
+              <div
+                className="toggle-glass-indicator"
+                style={{
+                  left: activeTab === 'calendar' ? '2px' : '50%',
+                  width: 'calc(50% - 2px)',
+                }}
+              />
               <button
                 onClick={() => setActiveTab('calendar')}
-                className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all ${
-                  activeTab === 'calendar' ? 'bg-white shadow-sm text-sage-700' : 'text-ink/50 hover:text-ink/70'
-                }`}
+                className={`toggle-glass-btn ${activeTab === 'calendar' ? 'active' : ''}`}
               >
-                📅 Calendar
+                Calendar
               </button>
               <button
                 onClick={() => setActiveTab('review')}
-                className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 ${
-                  activeTab === 'review' ? 'bg-white shadow-sm text-sage-700' : 'text-ink/50 hover:text-ink/70'
-                }`}
+                className={`toggle-glass-btn flex items-center ${activeTab === 'review' ? 'active' : ''}`}
               >
-                📝 Review
+                Review
                 {currentView === 'relationships' ? (
                   meetupsNeedingReview.length > 0 && (
-                    <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full ml-2">
                       {meetupsNeedingReview.length}
                     </span>
                   )
                 ) : (
                   sermonsNeedingInfo.length > 0 && (
-                    <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    <span className="bg-sage-600 text-white text-xs px-1.5 py-0.5 rounded-full ml-2">
                       {sermonsNeedingInfo.length}
                     </span>
                   )
@@ -2131,23 +2150,23 @@ export default function App() {
 
             return (
               <div className="border-t border-navy/10">
-                {/* Disciple Contacts Section */}
+                {/* Contacts Section Toggle Header */}
                 <div className="px-4 sm:px-6 py-2 flex items-center justify-between">
                   <button
-                    onClick={() => toggleSection('disciple')}
+                    onClick={() => setShowContactsSection(!showContactsSection)}
                     className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
                   >
                     <svg
-                      className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'disciple' ? 'rotate-180' : ''}`}
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${showContactsSection ? 'rotate-180' : ''}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
-                    <span className="font-medium uppercase tracking-wider text-xs">Disciple Contacts</span>
+                    <span className="font-medium uppercase tracking-wider text-xs">Contacts</span>
                   </button>
-                  {openContactSection === 'disciple' && (
+                  {showContactsSection && (
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => loadRelationships(true)}
@@ -2159,138 +2178,154 @@ export default function App() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                       </button>
-                      <button
-                        onClick={() => {
-                          showToast('Add contact feature coming soon - add contacts directly in Craft', 'info');
-                        }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center transition-colors text-sm bg-navy/10 hover:bg-navy/20 text-navy-600"
-                        title="Add new contact"
-                      >
-                        +
-                      </button>
                     </div>
                   )}
                 </div>
+
+                {/* Collapsible Contacts Content */}
                 <div
                   className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                    openContactSection === 'disciple' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                    showContactsSection ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                   }`}
                 >
-                  <div className="px-4 sm:px-6 pb-3">
-                    <div className="flex flex-wrap gap-2">
-                      {sortedDisciples.map(c => renderContactPill(c, 'disciple'))}
-                      {discipleContacts.length === 0 && !relationshipsLoading && (
-                        <p className="text-xs text-ink/40 italic">No disciple contacts found</p>
-                      )}
-                      {relationshipsLoading && (
-                        <p className="text-xs text-ink/40 italic">Loading contacts...</p>
-                      )}
+                  {/* Disciple Contacts Section */}
+                  <div className="px-4 sm:px-6 py-2 flex items-center justify-between border-t border-navy/5">
+                    <button
+                      onClick={() => toggleSection('disciple')}
+                      className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
+                    >
+                      <svg
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'disciple' ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      <span className="font-medium uppercase tracking-wider text-xs">Disciple Contacts</span>
+                    </button>
+                  </div>
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                      openContactSection === 'disciple' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+                  >
+                    <div className="px-4 sm:px-6 pb-3">
+                      <div className="flex flex-wrap gap-2">
+                        {sortedDisciples.map(c => renderContactPill(c, 'disciple'))}
+                        {discipleContacts.length === 0 && !relationshipsLoading && (
+                          <p className="text-xs text-ink/40 italic">No disciple contacts found</p>
+                        )}
+                        {relationshipsLoading && (
+                          <p className="text-xs text-ink/40 italic">Loading contacts...</p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Family Section */}
-                <div className="px-4 sm:px-6 py-2 flex items-center justify-between border-t border-navy/5">
-                  <button
-                    onClick={() => toggleSection('family')}
-                    className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
-                  >
-                    <svg
-                      className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'family' ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {/* Family Section */}
+                  <div className="px-4 sm:px-6 py-2 flex items-center justify-between border-t border-navy/5">
+                    <button
+                      onClick={() => toggleSection('family')}
+                      className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    <span className="font-medium uppercase tracking-wider text-xs">Family</span>
-                  </button>
-                </div>
-                <div
-                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                    openContactSection === 'family' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                  }`}
-                >
-                  <div className="px-4 sm:px-6 pb-3">
-                    <div className="flex flex-wrap gap-2">
-                      {sortedFamily.map(c => renderContactPill(c, 'family'))}
-                      {familyContacts.length === 0 && !relationshipsLoading && (
-                        <p className="text-xs text-ink/40 italic">No family contacts found</p>
-                      )}
-                      {relationshipsLoading && (
-                        <p className="text-xs text-ink/40 italic">Loading contacts...</p>
-                      )}
+                      <svg
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'family' ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      <span className="font-medium uppercase tracking-wider text-xs">Family</span>
+                    </button>
+                  </div>
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                      openContactSection === 'family' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+                  >
+                    <div className="px-4 sm:px-6 pb-3">
+                      <div className="flex flex-wrap gap-2">
+                        {sortedFamily.map(c => renderContactPill(c, 'family'))}
+                        {familyContacts.length === 0 && !relationshipsLoading && (
+                          <p className="text-xs text-ink/40 italic">No family contacts found</p>
+                        )}
+                        {relationshipsLoading && (
+                          <p className="text-xs text-ink/40 italic">Loading contacts...</p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Supporting Pastor Section */}
-                <div className="px-4 sm:px-6 py-2 flex items-center justify-between border-t border-navy/5">
-                  <button
-                    onClick={() => toggleSection('supporting-pastor')}
-                    className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
-                  >
-                    <svg
-                      className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'supporting-pastor' ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {/* Supporting Pastor Section */}
+                  <div className="px-4 sm:px-6 py-2 flex items-center justify-between border-t border-navy/5">
+                    <button
+                      onClick={() => toggleSection('supporting-pastor')}
+                      className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    <span className="font-medium uppercase tracking-wider text-xs">Supporting Pastor</span>
-                    <span className="text-ink/40 text-xs">(top 5)</span>
-                  </button>
-                </div>
-                <div
-                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                    openContactSection === 'supporting-pastor' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                  }`}
-                >
-                  <div className="px-4 sm:px-6 pb-3">
-                    <div className="flex flex-wrap gap-2">
-                      {sortedSupportingPastors.map(c => renderContactPill(c, 'supporting-pastor'))}
-                      {supportingPastorContacts.length === 0 && !relationshipsLoading && (
-                        <p className="text-xs text-ink/40 italic">No supporting pastor contacts found</p>
-                      )}
-                      {relationshipsLoading && (
-                        <p className="text-xs text-ink/40 italic">Loading contacts...</p>
-                      )}
+                      <svg
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'supporting-pastor' ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      <span className="font-medium uppercase tracking-wider text-xs">Supporting Pastor</span>
+                      <span className="text-ink/40 text-xs">(top 5)</span>
+                    </button>
+                  </div>
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                      openContactSection === 'supporting-pastor' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+                  >
+                    <div className="px-4 sm:px-6 pb-3">
+                      <div className="flex flex-wrap gap-2">
+                        {sortedSupportingPastors.map(c => renderContactPill(c, 'supporting-pastor'))}
+                        {supportingPastorContacts.length === 0 && !relationshipsLoading && (
+                          <p className="text-xs text-ink/40 italic">No supporting pastor contacts found</p>
+                        )}
+                        {relationshipsLoading && (
+                          <p className="text-xs text-ink/40 italic">Loading contacts...</p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Spiritually Interested Section */}
-                <div className="px-4 sm:px-6 py-2 flex items-center justify-between border-t border-navy/5">
-                  <button
-                    onClick={() => toggleSection('spiritually-interested')}
-                    className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
-                  >
-                    <svg
-                      className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'spiritually-interested' ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {/* Spiritually Interested Section */}
+                  <div className="px-4 sm:px-6 py-2 flex items-center justify-between border-t border-navy/5">
+                    <button
+                      onClick={() => toggleSection('spiritually-interested')}
+                      className="flex items-center gap-1.5 text-ink/60 hover:text-ink/80 transition-colors"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    <span className="font-medium uppercase tracking-wider text-xs">Spiritually Interested</span>
-                  </button>
-                </div>
-                <div
-                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                    openContactSection === 'spiritually-interested' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                  }`}
-                >
-                  <div className="px-4 sm:px-6 pb-3">
-                    <div className="flex flex-wrap gap-2">
-                      {sortedSpirituallyInterested.map(c => renderContactPill(c, 'spiritually-interested'))}
-                      {spirituallyInterestedContacts.length === 0 && !relationshipsLoading && (
-                        <p className="text-xs text-ink/40 italic">No spiritually interested contacts found</p>
-                      )}
-                      {relationshipsLoading && (
-                        <p className="text-xs text-ink/40 italic">Loading contacts...</p>
-                      )}
+                      <svg
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${openContactSection === 'spiritually-interested' ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                      <span className="font-medium uppercase tracking-wider text-xs">Spiritually Interested</span>
+                    </button>
+                  </div>
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                      openContactSection === 'spiritually-interested' ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+                  >
+                    <div className="px-4 sm:px-6 pb-3">
+                      <div className="flex flex-wrap gap-2">
+                        {sortedSpirituallyInterested.map(c => renderContactPill(c, 'spiritually-interested'))}
+                        {spirituallyInterestedContacts.length === 0 && !relationshipsLoading && (
+                          <p className="text-xs text-ink/40 italic">No spiritually interested contacts found</p>
+                        )}
+                        {relationshipsLoading && (
+                          <p className="text-xs text-ink/40 italic">Loading contacts...</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
