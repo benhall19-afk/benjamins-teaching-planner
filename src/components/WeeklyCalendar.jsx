@@ -337,6 +337,16 @@ export default function WeeklyCalendar({
                     )}
                   </button>
                 )}
+
+                {/* Open Today in Craft button */}
+                {isToday && import.meta.env.VITE_CRAFT_SPACE_ID && (
+                  <a
+                    href={`craftdocs://x-callback-url/openByDatePath?spaceId=${import.meta.env.VITE_CRAFT_SPACE_ID}&date=${dateKey}`}
+                    className="mt-2 w-full py-2 px-3 rounded-lg text-xs font-medium transition-all bg-orange-100 text-orange-700 hover:bg-orange-200 active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <span>📝</span> Today in Craft
+                  </a>
+                )}
               </div>
             );
           })}
