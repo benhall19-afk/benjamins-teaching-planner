@@ -476,13 +476,19 @@ h1, h2, h3, h4, h5, h6 {
 .toggle-glass-btn {
   position: relative;
   z-index: 1;
-  padding: 6px 22px;
+  padding: 5px 12px;
   font-size: 13px;
   font-weight: 500;
   color: rgba(0, 0, 0, 0.5);
   transition: color 0.2s ease;
   border-radius: 9999px;
   white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .toggle-glass-btn {
+    padding: 6px 22px;
+  }
 }
 
 .toggle-glass-btn.active {

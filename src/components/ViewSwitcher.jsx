@@ -121,12 +121,12 @@ export default function ViewSwitcher({ currentView, onViewChange }) {
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 hover:bg-white/30"
+        className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 rounded-xl transition-all duration-200 hover:bg-white/30"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
-        <span className="text-xl">{current.icon}</span>
-        <span className="font-semibold text-ink">{current.name}</span>
+        <span className="text-lg sm:text-xl">{current.icon}</span>
+        <span className="font-semibold text-ink text-sm sm:text-base">{current.name}</span>
         <svg
           className={`w-4 h-4 text-ink/60 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           fill="none"

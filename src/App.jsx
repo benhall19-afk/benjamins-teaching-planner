@@ -1942,14 +1942,14 @@ export default function App() {
                 onClick={() => setActiveTab('calendar')}
                 className={`toggle-glass-btn ${activeTab === 'calendar' ? 'active' : ''}`}
               >
-                <span className="md:hidden text-lg">📅</span>
+                <span className="md:hidden text-sm">📅</span>
                 <span className="hidden md:inline">Calendar</span>
               </button>
               <button
                 onClick={() => setActiveTab('review')}
                 className={`toggle-glass-btn flex items-center ${activeTab === 'review' ? 'active' : ''}`}
               >
-                <span className="md:hidden text-lg">📝</span>
+                <span className="md:hidden text-sm">📝</span>
                 <span className="hidden md:inline">Review</span>
                 {currentView === 'relationships' ? (
                   meetupsNeedingReview.length > 0 && (
