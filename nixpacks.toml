@@ -1,5 +1,8 @@
 # Nixpacks configuration for Node.js Express server
-# This prevents Nixpacks from auto-detecting Caddy for static file serving
+# Explicitly set providers to prevent Caddy auto-detection
+
+# Disable all auto-detected providers and use only Node.js
+providers = ["node"]
 
 [phases.setup]
 nixPkgs = ["nodejs_18", "npm-9_x"]
