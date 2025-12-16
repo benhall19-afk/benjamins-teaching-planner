@@ -892,12 +892,13 @@ app.put('/api/schedule/:id', async (req, res) => {
     if (updates.rating !== undefined) craftUpdates.properties.rating = numberToStars(updates.rating);
 
     // Series is a RELATION field - need to send as sermon_series with blockId
+    // Only update series if explicitly provided (not when just updating date)
     if (updates.sermon_series_id) {
       craftUpdates.properties.sermon_series = {
         relations: [{ blockId: updates.sermon_series_id }]
       };
-    } else if (updates.sermon_series_id === null || updates.sermon_series_id === '') {
-      // Clear the series relation
+    } else if (updates.hasOwnProperty('sermon_series_id') && (updates.sermon_series_id === null || updates.sermon_series_id === '')) {
+      // Only clear series if sermon_series_id was explicitly set to null/empty
       craftUpdates.properties.sermon_series = { relations: [] };
     }
 
@@ -914,11 +915,14 @@ app.put('/api/schedule/:id', async (req, res) => {
     if (updates.series_number !== undefined) craftUpdates.properties.series_number = updates.series_number;
 
     // Use allowNewSelectOptions to automatically add any new theme/audience/season values to Craft schema
+    console.log('Updating schedule entry with:', JSON.stringify(craftUpdates, null, 2));
     const result = await updateCollectionItems(COLLECTIONS.schedule, [craftUpdates], true);
     invalidateCache('schedule');
 
     res.json({ success: true, result });
   } catch (error) {
+    console.error('Schedule update failed:', error.message);
+    console.error('Payload was:', JSON.stringify(craftUpdates, null, 2));
     res.status(500).json({ error: 'Failed to update schedule entry', details: error.message });
   }
 });

@@ -1572,14 +1572,13 @@ export default function App() {
         showToast('Failed to reschedule: ' + err.message, 'error');
       }
     } else {
-      // Handle sermon drop
+      // Handle sermon drop - only send the field that's changing
       const updatedEvent = { ...draggedEvent, sermon_date: newDate };
       setSchedule(prev => prev.map(s => s.id === draggedEvent.id ? updatedEvent : s));
       setDraggedEvent(null);
 
       try {
         await api.updateScheduleEntry(draggedEvent.id, {
-          ...draggedEvent,
           sermon_date: newDate
         });
         showToast('Date updated!', 'success');
