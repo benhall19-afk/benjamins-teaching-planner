@@ -874,9 +874,13 @@ app.put('/api/schedule/:id', async (req, res) => {
     // Map frontend field names to Craft property keys
     const craftUpdates = {
       id,
-      sermon_name: updates.sermon_name,
       properties: {}
     };
+
+    // Only include sermon_name if it has a value (Craft API rejects empty names)
+    if (updates.sermon_name) {
+      craftUpdates.sermon_name = updates.sermon_name;
+    }
 
     // Original schedule fields
     if (updates.lesson_type) craftUpdates.properties.lesson_type = updates.lesson_type;
