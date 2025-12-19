@@ -872,11 +872,16 @@ app.put('/api/schedule/:id', async (req, res) => {
     const updates = req.body;
 
     // Map frontend field names to Craft property keys
+    // Only include fields that are explicitly provided in the update
     const craftUpdates = {
       id,
-      sermon_name: updates.sermon_name,
       properties: {}
     };
+
+    // Only update sermon_name if explicitly provided (not undefined)
+    if (updates.sermon_name !== undefined) {
+      craftUpdates.sermon_name = updates.sermon_name;
+    }
 
     // Original schedule fields
     if (updates.lesson_type) craftUpdates.properties.lesson_type = updates.lesson_type;
@@ -888,13 +893,16 @@ app.put('/api/schedule/:id', async (req, res) => {
     if (updates.rating !== undefined) craftUpdates.properties.rating = numberToStars(updates.rating);
 
     // Series is a RELATION field - need to send as sermon_series with blockId
-    if (updates.sermon_series_id) {
-      craftUpdates.properties.sermon_series = {
-        relations: [{ blockId: updates.sermon_series_id }]
-      };
-    } else if (updates.sermon_series_id === null || updates.sermon_series_id === '') {
-      // Clear the series relation
-      craftUpdates.properties.sermon_series = { relations: [] };
+    // Only modify series if sermon_series_id was explicitly included in the update request
+    if ('sermon_series_id' in updates) {
+      if (updates.sermon_series_id) {
+        craftUpdates.properties.sermon_series = {
+          relations: [{ blockId: updates.sermon_series_id }]
+        };
+      } else {
+        // Clear the series relation only if explicitly set to null/empty
+        craftUpdates.properties.sermon_series = { relations: [] };
+      }
     }
 
     // Metadata fields
