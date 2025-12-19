@@ -685,6 +685,7 @@ export default function App() {
   const [seriesOptions, setSeriesOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [customPreachers, setCustomPreachers] = useState([]);
 
   // Devotions data state
   const [devotionSeries, setDevotionSeries] = useState([]);
@@ -3345,6 +3346,11 @@ export default function App() {
                 showToast('Failed to add series: ' + err.message, 'error');
               }
             }}
+            customPreachers={customPreachers}
+            onAddPreacher={(newPreacher) => {
+              setCustomPreachers(prev => [...prev, newPreacher]);
+              showToast(`Preacher "${newPreacher}" added!`, 'success');
+            }}
           />
         </Modal>
       )}
@@ -3510,6 +3516,11 @@ export default function App() {
                 showToast('Failed to add series: ' + err.message, 'error');
               }
             }}
+            customPreachers={customPreachers}
+            onAddPreacher={(newPreacher) => {
+              setCustomPreachers(prev => [...prev, newPreacher]);
+              showToast(`Preacher "${newPreacher}" added!`, 'success');
+            }}
           />
         </Modal>
       )}
@@ -3664,7 +3675,7 @@ function Modal({ children, onClose }) {
   );
 }
 
-function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, showDelete, seriesOptions = [], onAddSeries, craftDeepLink }) {
+function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, showDelete, seriesOptions = [], onAddSeries, craftDeepLink, customPreachers = [], onAddPreacher }) {
   const updateField = (field, value) => {
     onChange({
       ...entry,
@@ -3717,14 +3728,18 @@ function EntryForm({ entry, onChange, onSave, onDelete, onCancel, isSaving, show
 
       <div>
         <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Preacher</label>
-        <select
+        <SelectWithAdd
           value={getValue('preacher')}
-          onChange={(e) => updateField('preacher', e.target.value)}
-          className="w-full select-glass text-sm sm:text-base"
-        >
-          <option value="">Select...</option>
-          {PREACHERS.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
+          onChange={(value) => updateField('preacher', value)}
+          options={PREACHERS}
+          customOptions={customPreachers}
+          onAddCustom={(newValue) => {
+            if (onAddPreacher) {
+              onAddPreacher(newValue);
+            }
+          }}
+          label="Preacher"
+        />
       </div>
 
       <div>
@@ -3965,7 +3980,7 @@ function AddDevotionForm({ initialDate, onSave, onCancel, isSaving, activeSeries
   );
 }
 
-function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions = [], onAddSeries }) {
+function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions = [], onAddSeries, customPreachers = [], onAddPreacher }) {
   const [entry, setEntry] = useState({
     sermon_name: '',
     notes: '',
@@ -4019,13 +4034,18 @@ function AddEntryForm({ initialDate, onSave, onCancel, isSaving, seriesOptions =
 
       <div>
         <label className="block text-xs sm:text-sm font-medium text-ink/70 mb-1">Preacher</label>
-        <select
+        <SelectWithAdd
           value={entry.preacher}
-          onChange={(e) => setEntry(prev => ({ ...prev, preacher: e.target.value }))}
-          className="w-full select-glass text-sm sm:text-base"
-        >
-          {PREACHERS.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
+          onChange={(value) => setEntry(prev => ({ ...prev, preacher: value }))}
+          options={PREACHERS}
+          customOptions={customPreachers}
+          onAddCustom={(newValue) => {
+            if (onAddPreacher) {
+              onAddPreacher(newValue);
+            }
+          }}
+          label="Preacher"
+        />
       </div>
 
       <div>
