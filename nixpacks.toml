@@ -1,11 +1,16 @@
 # Nixpacks configuration for Node.js Express server
-# Explicitly set providers to prevent Caddy auto-detection
 
 # Disable all auto-detected providers and use only Node.js
 providers = ["node"]
 
 [phases.setup]
 nixPkgs = ["nodejs_18", "npm-9_x"]
+
+# Explicitly disable Caddy phase to prevent blank ENV error
+[phases.caddy]
+nixPkgs = []
+cmds = []
+onlyIncludeFiles = []
 
 [phases.install]
 cmds = ["npm ci"]
