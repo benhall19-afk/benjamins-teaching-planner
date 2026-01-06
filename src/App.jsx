@@ -1914,7 +1914,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen relative pb-24 md:pb-0">
+    <div className="min-h-screen relative pb-24 md:pb-6 lg:pb-0">
       {/* Glossy background blobs */}
       <div className="glossy-blob glossy-blob-1" />
       <div className="glossy-blob glossy-blob-2" />
