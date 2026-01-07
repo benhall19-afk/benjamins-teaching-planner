@@ -2381,16 +2381,17 @@ export default function App() {
       <div className="px-4 md:px-6 pb-6 max-w-6xl mx-auto relative z-10">
         {/* Calendar Tab */}
         {activeTab === 'calendar' && (
-          <div className="flex gap-4">
-            {/* LEFT Sidebar - Untaught Lessons (devotions view) - slides out into yellow area */}
+          <div className="relative">
+            {/* LEFT Sidebar - Untaught Lessons (devotions view) - slides out from under calendar */}
             <div
-              className={`transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0 ${
+              className={`absolute right-full top-0 mr-4 transition-all duration-300 ease-in-out ${
                 showLessonsSidebar && currentView === 'devotions'
-                  ? 'w-64 opacity-100'
-                  : 'w-0 opacity-0'
+                  ? 'translate-x-0 opacity-100'
+                  : 'translate-x-full opacity-0 pointer-events-none'
               }`}
+              style={{ height: 'var(--calendar-height, auto)' }}
             >
-              <div className="w-64 h-full glass-card p-4 overflow-y-auto max-h-[calc(100vh-180px)] bg-gradient-to-br from-amber-50/80 to-white/90">
+              <div className="w-64 h-full glass-card p-4 overflow-y-auto bg-gradient-to-br from-amber-50/80 to-white/90">
                 <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-3">
                   Untaught Lessons
                 </h3>
@@ -2437,7 +2438,7 @@ export default function App() {
             </div>
 
             {/* Calendar Card */}
-            <div className="glass-card overflow-hidden animate-card-in flex-1 min-w-0">
+            <div className="glass-card overflow-hidden animate-card-in">
             {/* Weekly Layout */}
             {VIEWS[currentView]?.layout === 'weekly' ? (
               <div className="p-4">
