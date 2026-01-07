@@ -2381,7 +2381,63 @@ export default function App() {
       <div className="px-4 md:px-6 pb-6 max-w-6xl mx-auto relative z-10">
         {/* Calendar Tab */}
         {activeTab === 'calendar' && (
-          <div className="glass-card overflow-hidden animate-card-in">
+          <div className="flex gap-4">
+            {/* LEFT Sidebar - Untaught Lessons (devotions view) - slides out into yellow area */}
+            <div
+              className={`transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0 ${
+                showLessonsSidebar && currentView === 'devotions'
+                  ? 'w-64 opacity-100'
+                  : 'w-0 opacity-0'
+              }`}
+            >
+              <div className="w-64 h-full glass-card p-4 overflow-y-auto max-h-[calc(100vh-180px)] bg-gradient-to-br from-amber-50/80 to-white/90">
+                <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-3">
+                  Untaught Lessons
+                </h3>
+
+                {Object.keys(untaughtLessonsBySeries).length === 0 ? (
+                  <p className="text-xs text-ink/50 italic">All lessons have been taught!</p>
+                ) : (
+                  Object.entries(untaughtLessonsBySeries).map(([seriesName, lessons]) => (
+                    <div key={seriesName} className="mb-4">
+                      <h4 className="font-medium uppercase tracking-wider text-[10px] text-amber-600 mb-2 truncate" title={seriesName}>
+                        {seriesName}
+                      </h4>
+                      <div className="space-y-1">
+                        {lessons.map(lesson => {
+                          const displayTitle = getDevotionDisplayTitle(lesson);
+                          const isPrepared = isDevotionPrepared(lesson);
+                          const isScheduled = !!lesson.scheduled_date;
+
+                          return (
+                            <div
+                              key={lesson.id}
+                              draggable
+                              onDragStart={() => setDraggedEvent({ ...lesson, source: 'devotion' })}
+                              onDragEnd={() => setDraggedEvent(null)}
+                              onClick={() => setSelectedDevotionLesson({ ...lesson })}
+                              className={`px-2 py-1.5 rounded text-xs cursor-grab active:cursor-grabbing transition-colors flex items-center gap-1 ${
+                                isScheduled
+                                  ? 'bg-amber-100 border border-amber-300 hover:bg-amber-200'
+                                  : 'bg-white border border-amber/30 hover:bg-amber/10'
+                              } ${draggedEvent?.id === lesson.id ? 'opacity-50' : ''}`}
+                              title={`${displayTitle}${isScheduled ? ' (scheduled: ' + lesson.scheduled_date + ')' : ' (not scheduled)'}`}
+                            >
+                              {isPrepared && <span className="text-[10px]">⭐</span>}
+                              <span className="truncate">{displayTitle}</span>
+                              {isScheduled && <span className="text-[9px] text-amber-600 ml-auto flex-shrink-0">📅</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Calendar Card */}
+            <div className="glass-card overflow-hidden animate-card-in flex-1 min-w-0">
             {/* Weekly Layout */}
             {VIEWS[currentView]?.layout === 'weekly' ? (
               <div className="p-4">
@@ -2539,58 +2595,10 @@ export default function App() {
               </div>
             )}
 
-            {/* Calendar Grid with optional sidebars */}
-            <div className={`flex ${showUnscheduled || showLessonsSidebar ? 'flex-col lg:flex-row' : ''}`}>
-              {/* LEFT Sidebar - Untaught Lessons (devotions view) */}
-              {showLessonsSidebar && currentView === 'devotions' && (
-                <div className="w-full lg:w-72 border-b lg:border-b-0 lg:border-r border-amber/10 p-3 sm:p-4 bg-amber-50/30 max-h-[40vh] lg:max-h-none overflow-y-auto animate-card-in order-first">
-                  <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-3">
-                    Untaught Lessons
-                  </h3>
-
-                  {Object.keys(untaughtLessonsBySeries).length === 0 ? (
-                    <p className="text-xs text-ink/50 italic">All lessons have been taught!</p>
-                  ) : (
-                    Object.entries(untaughtLessonsBySeries).map(([seriesName, lessons]) => (
-                      <div key={seriesName} className="mb-4">
-                        <h4 className="font-medium uppercase tracking-wider text-[10px] text-amber-600 mb-2 truncate" title={seriesName}>
-                          {seriesName}
-                        </h4>
-                        <div className="space-y-1">
-                          {lessons.map(lesson => {
-                            const displayTitle = getDevotionDisplayTitle(lesson);
-                            const isPrepared = isDevotionPrepared(lesson);
-                            const isScheduled = !!lesson.scheduled_date;
-
-                            return (
-                              <div
-                                key={lesson.id}
-                                draggable
-                                onDragStart={() => setDraggedEvent({ ...lesson, source: 'devotion' })}
-                                onDragEnd={() => setDraggedEvent(null)}
-                                onClick={() => setSelectedDevotionLesson({ ...lesson })}
-                                className={`px-2 py-1.5 rounded text-xs cursor-grab active:cursor-grabbing transition-colors truncate flex items-center gap-1 ${
-                                  isScheduled
-                                    ? 'bg-amber-100 border border-amber-300 hover:bg-amber-200'
-                                    : 'bg-white border border-amber/30 hover:bg-amber/10'
-                                } ${draggedEvent?.id === lesson.id ? 'opacity-50' : ''}`}
-                                title={`${displayTitle}${isScheduled ? ' (scheduled: ' + lesson.scheduled_date + ')' : ' (not scheduled)'}`}
-                              >
-                                {isPrepared && <span className="text-[10px]">⭐</span>}
-                                <span className="truncate">{displayTitle}</span>
-                                {isScheduled && <span className="text-[9px] text-amber-600 ml-auto">📅</span>}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
+            {/* Calendar Grid with optional sidebar */}
+            <div className={`flex ${showUnscheduled ? 'flex-col lg:flex-row' : ''}`}>
               {/* Main Calendar */}
-              <div className={`p-2 sm:p-4 ${showUnscheduled || showLessonsSidebar ? 'flex-1' : 'w-full'}`}>
+              <div className={`p-2 sm:p-4 ${showUnscheduled ? 'flex-1' : 'w-full'}`}>
               {/* Day Headers with week indicator space */}
               <div className="flex mb-1 sm:mb-2">
                 <div className="w-6 sm:w-7 flex-shrink-0" /> {/* Space for week indicators - matches .week-indicator width */}
@@ -2998,6 +3006,7 @@ export default function App() {
             </div>
             </>
             )}
+          </div>
           </div>
         )}
 
