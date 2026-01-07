@@ -726,6 +726,9 @@ export default function App() {
   // Unscheduled sermons sidebar
   const [showUnscheduled, setShowUnscheduled] = useState(false);
 
+  // Untaught lessons sidebar (devotions view - slides from left)
+  const [showLessonsSidebar, setShowLessonsSidebar] = useState(false);
+
   // UI state
   const [activeTab, setActiveTab] = useState('calendar');
   const [toast, setToast] = useState(null);
@@ -1194,6 +1197,43 @@ export default function App() {
       return status !== 'Complete' && status !== 'Ready to Preach' && status !== 'in progress';
     });
   }, [unscheduledSermons]);
+
+  // Filter untaught devotion lessons (no last_taught date) - for left sidebar
+  const untaughtLessons = useMemo(() => {
+    return devotionLessons.filter(lesson => !lesson.last_taught);
+  }, [devotionLessons]);
+
+  // Group untaught lessons by series for better organization in sidebar
+  const untaughtLessonsBySeries = useMemo(() => {
+    const grouped = {};
+    untaughtLessons.forEach(lesson => {
+      const seriesId = lesson.series_id || 'unknown';
+      const series = devotionSeries.find(s => s.id === seriesId);
+      const seriesName = series?.title || 'Other Lessons';
+
+      if (!grouped[seriesName]) {
+        grouped[seriesName] = [];
+      }
+      grouped[seriesName].push(lesson);
+    });
+
+    // Sort lessons within each series by week_lesson and day
+    Object.keys(grouped).forEach(seriesName => {
+      grouped[seriesName].sort((a, b) => {
+        // Extract week number
+        const weekA = parseInt(a.week_lesson?.match(/\d+/)?.[0] || 0);
+        const weekB = parseInt(b.week_lesson?.match(/\d+/)?.[0] || 0);
+        if (weekA !== weekB) return weekA - weekB;
+
+        // Then by day
+        const dayA = parseInt(a.day?.toString().match(/\d+/)?.[0] || 0);
+        const dayB = parseInt(b.day?.toString().match(/\d+/)?.[0] || 0);
+        return dayA - dayB;
+      });
+    });
+
+    return grouped;
+  }, [untaughtLessons, devotionSeries]);
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -2419,9 +2459,10 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Left - Unscheduled button (desktop only, absolute) */}
+              {/* Left - Sidebar toggle button (desktop only, absolute) */}
               <div className="hidden sm:flex items-center absolute left-3 sm:left-4 top-1/2 -translate-y-1/2">
-                {unscheduledSermons.length > 0 && (
+                {/* Sermons view: Unscheduled sermons button */}
+                {currentView === 'sermons' && unscheduledSermons.length > 0 && (
                   <button
                     onClick={() => setShowUnscheduled(!showUnscheduled)}
                     className={`px-3 py-2 rounded-full text-sm font-medium transition-all ${
@@ -2431,6 +2472,19 @@ export default function App() {
                     }`}
                   >
                     📋 Unscheduled ({unscheduledSermons.length})
+                  </button>
+                )}
+                {/* Devotions view: Untaught lessons button */}
+                {currentView === 'devotions' && untaughtLessons.length > 0 && (
+                  <button
+                    onClick={() => setShowLessonsSidebar(!showLessonsSidebar)}
+                    className={`px-3 py-2 rounded-full text-sm font-medium transition-all ${
+                      showLessonsSidebar
+                        ? 'btn-glossy-amber'
+                        : 'btn-glass'
+                    }`}
+                  >
+                    📚 Lessons ({untaughtLessons.length})
                   </button>
                 )}
               </div>
@@ -2453,8 +2507,8 @@ export default function App() {
               )}
             </div>
 
-            {/* Mobile-only: Unscheduled button */}
-            {unscheduledSermons.length > 0 && (
+            {/* Mobile-only: Unscheduled button (sermons) */}
+            {currentView === 'sermons' && unscheduledSermons.length > 0 && (
               <div className="sm:hidden px-3 py-2 border-b border-sage/10 bg-gradient-to-r from-sage-50/50 to-white/50">
                 <button
                   onClick={() => setShowUnscheduled(!showUnscheduled)}
@@ -2469,10 +2523,74 @@ export default function App() {
               </div>
             )}
 
-            {/* Calendar Grid with optional sidebar */}
-            <div className={`flex ${showUnscheduled ? 'flex-col lg:flex-row' : ''}`}>
+            {/* Mobile-only: Untaught lessons button (devotions) */}
+            {currentView === 'devotions' && untaughtLessons.length > 0 && (
+              <div className="sm:hidden px-3 py-2 border-b border-amber/10 bg-gradient-to-r from-amber-50/50 to-white/50">
+                <button
+                  onClick={() => setShowLessonsSidebar(!showLessonsSidebar)}
+                  className={`w-full px-3 py-2 rounded-full text-sm font-medium transition-all ${
+                    showLessonsSidebar
+                      ? 'btn-glossy-amber'
+                      : 'btn-glass'
+                  }`}
+                >
+                  📚 Lessons ({untaughtLessons.length})
+                </button>
+              </div>
+            )}
+
+            {/* Calendar Grid with optional sidebars */}
+            <div className={`flex ${showUnscheduled || showLessonsSidebar ? 'flex-col lg:flex-row' : ''}`}>
+              {/* LEFT Sidebar - Untaught Lessons (devotions view) */}
+              {showLessonsSidebar && currentView === 'devotions' && (
+                <div className="w-full lg:w-72 border-b lg:border-b-0 lg:border-r border-amber/10 p-3 sm:p-4 bg-amber-50/30 max-h-[40vh] lg:max-h-none overflow-y-auto animate-card-in order-first">
+                  <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-3">
+                    Untaught Lessons
+                  </h3>
+
+                  {Object.keys(untaughtLessonsBySeries).length === 0 ? (
+                    <p className="text-xs text-ink/50 italic">All lessons have been taught!</p>
+                  ) : (
+                    Object.entries(untaughtLessonsBySeries).map(([seriesName, lessons]) => (
+                      <div key={seriesName} className="mb-4">
+                        <h4 className="font-medium uppercase tracking-wider text-[10px] text-amber-600 mb-2 truncate" title={seriesName}>
+                          {seriesName}
+                        </h4>
+                        <div className="space-y-1">
+                          {lessons.map(lesson => {
+                            const displayTitle = getDevotionDisplayTitle(lesson);
+                            const isPrepared = isDevotionPrepared(lesson);
+                            const isScheduled = !!lesson.scheduled_date;
+
+                            return (
+                              <div
+                                key={lesson.id}
+                                draggable
+                                onDragStart={() => setDraggedEvent({ ...lesson, source: 'devotion' })}
+                                onDragEnd={() => setDraggedEvent(null)}
+                                onClick={() => setSelectedDevotionLesson({ ...lesson })}
+                                className={`px-2 py-1.5 rounded text-xs cursor-grab active:cursor-grabbing transition-colors truncate flex items-center gap-1 ${
+                                  isScheduled
+                                    ? 'bg-amber-100 border border-amber-300 hover:bg-amber-200'
+                                    : 'bg-white border border-amber/30 hover:bg-amber/10'
+                                } ${draggedEvent?.id === lesson.id ? 'opacity-50' : ''}`}
+                                title={`${displayTitle}${isScheduled ? ' (scheduled: ' + lesson.scheduled_date + ')' : ' (not scheduled)'}`}
+                              >
+                                {isPrepared && <span className="text-[10px]">⭐</span>}
+                                <span className="truncate">{displayTitle}</span>
+                                {isScheduled && <span className="text-[9px] text-amber-600 ml-auto">📅</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
               {/* Main Calendar */}
-              <div className={`p-2 sm:p-4 ${showUnscheduled ? 'flex-1' : 'w-full'}`}>
+              <div className={`p-2 sm:p-4 ${showUnscheduled || showLessonsSidebar ? 'flex-1' : 'w-full'}`}>
               {/* Day Headers with week indicator space */}
               <div className="flex mb-1 sm:mb-2">
                 <div className="w-6 sm:w-7 flex-shrink-0" /> {/* Space for week indicators - matches .week-indicator width */}
@@ -2717,8 +2835,8 @@ export default function App() {
               </div>
               </div>
 
-              {/* Unscheduled Sermons Sidebar */}
-              {showUnscheduled && (
+              {/* Unscheduled Sermons Sidebar (right side, sermons view only) */}
+              {showUnscheduled && currentView === 'sermons' && (
                 <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-sage/10 p-3 sm:p-4 bg-sage-50/30 max-h-[40vh] lg:max-h-none overflow-y-auto animate-card-in">
                   <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-3">
                     Unscheduled Sermons
