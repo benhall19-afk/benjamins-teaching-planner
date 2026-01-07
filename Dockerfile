@@ -1,5 +1,5 @@
 # Custom Dockerfile for Node.js Express + Vite React app
-FROM node:18-alpine
+FROM node:18.20-alpine3.20
 
 WORKDIR /app
 
