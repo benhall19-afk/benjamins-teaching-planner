@@ -927,6 +927,164 @@ h1, h2, h3, h4, h5, h6 {
   background: linear-gradient(90deg, rgba(98, 125, 152, 0.08) 0%, transparent 100%);
 }
 
+/* ============================================
+   LESSONS SLIDEOUT SIDEBAR
+   ============================================ */
+
+/* The vertical tab button that sits on the edge of the calendar */
+.lessons-slideout-tab {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  z-index: 30;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.lessons-slideout-tab.open {
+  left: 256px;
+}
+
+.lessons-slideout-tab-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0.5rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(254, 243, 199, 0.95));
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-left: none;
+  border-radius: 0 1rem 1rem 0;
+  box-shadow:
+    2px 4px 12px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all 0.2s ease;
+}
+
+.lessons-slideout-tab:hover .lessons-slideout-tab-content {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(254, 243, 199, 1));
+  box-shadow:
+    4px 6px 16px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transform: translateX(2px);
+}
+
+.lessons-slideout-tab.active .lessons-slideout-tab-content {
+  background: linear-gradient(135deg, var(--amber-400), var(--amber-500));
+  border-color: var(--amber-500);
+  box-shadow:
+    2px 4px 12px rgba(245, 158, 11, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.lessons-slideout-tab-icon {
+  font-size: 1.25rem;
+}
+
+.lessons-slideout-tab-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--amber-700);
+}
+
+.lessons-slideout-tab.active .lessons-slideout-tab-text {
+  color: white;
+}
+
+.lessons-slideout-tab-count {
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--amber-500);
+  color: white;
+  padding: 0.2rem 0.4rem;
+  border-radius: 9999px;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.lessons-slideout-tab.active .lessons-slideout-tab-count {
+  background: white;
+  color: var(--amber-600);
+}
+
+/* The slideout panel that contains the lessons list */
+.lessons-slideout-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 256px;
+  height: 100%;
+  z-index: 20;
+  transform: translateX(-100%);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.lessons-slideout-panel.open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.lessons-slideout-content {
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(254, 243, 199, 0.9));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-right: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 1.5rem 0 0 1.5rem;
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+  box-shadow:
+    4px 0 20px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Mobile adjustments for slideout */
+@media (max-width: 640px) {
+  .lessons-slideout-tab {
+    top: 0;
+    transform: translateY(0);
+  }
+
+  .lessons-slideout-tab.open {
+    left: 220px;
+  }
+
+  .lessons-slideout-tab-content {
+    padding: 0.75rem 0.4rem;
+    border-radius: 0 0.75rem 0.75rem 0;
+  }
+
+  .lessons-slideout-tab-text {
+    font-size: 0.65rem;
+  }
+
+  .lessons-slideout-tab-icon {
+    font-size: 1rem;
+  }
+
+  .lessons-slideout-panel {
+    width: 220px;
+  }
+
+  .lessons-slideout-content {
+    max-height: calc(100vh - 220px);
+    padding: 0.75rem;
+  }
+}
+
 /* Mobile Bottom Navigation */
 .mobile-bottom-nav {
   animation: slideUp 0.3s ease-out;
