@@ -2381,63 +2381,78 @@ export default function App() {
       <div className="px-4 md:px-6 pb-6 max-w-6xl mx-auto relative z-10">
         {/* Calendar Tab */}
         {activeTab === 'calendar' && (
-          <div className="flex gap-4">
-            {/* LEFT Sidebar - Untaught Lessons (devotions view) - slides out into yellow area */}
-            <div
-              className={`transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0 ${
-                showLessonsSidebar && currentView === 'devotions'
-                  ? 'w-64 opacity-100'
-                  : 'w-0 opacity-0'
-              }`}
-            >
-              <div className="w-64 h-full glass-card p-4 overflow-y-auto max-h-[calc(100vh-180px)] bg-gradient-to-br from-amber-50/80 to-white/90">
-                <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-3">
-                  Untaught Lessons
-                </h3>
+          <div className="relative">
+            {/* Slideout Lessons Sidebar - slides from behind calendar (devotions view only) */}
+            {currentView === 'devotions' && untaughtLessons.length > 0 && (
+              <>
+                {/* Vertical Tab Button - positioned on left edge of calendar */}
+                <button
+                  onClick={() => setShowLessonsSidebar(!showLessonsSidebar)}
+                  className={`lessons-slideout-tab ${showLessonsSidebar ? 'active open' : ''}`}
+                >
+                  <span className="lessons-slideout-tab-content">
+                    <span className="lessons-slideout-tab-icon">📚</span>
+                    <span className="lessons-slideout-tab-text">Lessons</span>
+                    <span className="lessons-slideout-tab-count">{untaughtLessons.length}</span>
+                  </span>
+                </button>
 
-                {Object.keys(untaughtLessonsBySeries).length === 0 ? (
-                  <p className="text-xs text-ink/50 italic">All lessons have been taught!</p>
-                ) : (
-                  Object.entries(untaughtLessonsBySeries).map(([seriesName, lessons]) => (
-                    <div key={seriesName} className="mb-4">
-                      <h4 className="font-medium uppercase tracking-wider text-[10px] text-amber-600 mb-2 truncate" title={seriesName}>
-                        {seriesName}
-                      </h4>
-                      <div className="space-y-1">
-                        {lessons.map(lesson => {
-                          const displayTitle = getDevotionDisplayTitle(lesson);
-                          const isPrepared = isDevotionPrepared(lesson);
-                          const isScheduled = !!lesson.scheduled_date;
+                {/* Slideout Panel - positioned behind calendar */}
+                <div
+                  className={`lessons-slideout-panel ${showLessonsSidebar ? 'open' : ''}`}
+                >
+                  <div className="lessons-slideout-content">
+                    <h3 className="font-medium uppercase tracking-wider text-xs text-ink/60 mb-3">
+                      Untaught Lessons
+                    </h3>
 
-                          return (
-                            <div
-                              key={lesson.id}
-                              draggable
-                              onDragStart={() => setDraggedEvent({ ...lesson, source: 'devotion' })}
-                              onDragEnd={() => setDraggedEvent(null)}
-                              onClick={() => setSelectedDevotionLesson({ ...lesson })}
-                              className={`px-2 py-1.5 rounded text-xs cursor-grab active:cursor-grabbing transition-colors flex items-center gap-1 ${
-                                isScheduled
-                                  ? 'bg-amber-100 border border-amber-300 hover:bg-amber-200'
-                                  : 'bg-white border border-amber/30 hover:bg-amber/10'
-                              } ${draggedEvent?.id === lesson.id ? 'opacity-50' : ''}`}
-                              title={`${displayTitle}${isScheduled ? ' (scheduled: ' + lesson.scheduled_date + ')' : ' (not scheduled)'}`}
-                            >
-                              {isPrepared && <span className="text-[10px]">⭐</span>}
-                              <span className="truncate">{displayTitle}</span>
-                              {isScheduled && <span className="text-[9px] text-amber-600 ml-auto flex-shrink-0">📅</span>}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+                    {Object.keys(untaughtLessonsBySeries).length === 0 ? (
+                      <p className="text-xs text-ink/50 italic">All lessons have been taught!</p>
+                    ) : (
+                      Object.entries(untaughtLessonsBySeries).map(([seriesName, lessons]) => (
+                        <div key={seriesName} className="mb-4">
+                          <h4 className="font-medium uppercase tracking-wider text-[10px] text-amber-600 mb-2 truncate" title={seriesName}>
+                            {seriesName}
+                          </h4>
+                          <div className="space-y-1">
+                            {lessons.map(lesson => {
+                              const displayTitle = getDevotionDisplayTitle(lesson);
+                              const isPrepared = isDevotionPrepared(lesson);
+                              const isScheduled = !!lesson.scheduled_date;
+
+                              return (
+                                <div
+                                  key={lesson.id}
+                                  draggable
+                                  onDragStart={() => setDraggedEvent({ ...lesson, source: 'devotion' })}
+                                  onDragEnd={() => setDraggedEvent(null)}
+                                  onClick={() => setSelectedDevotionLesson({ ...lesson })}
+                                  className={`px-2 py-1.5 rounded text-xs cursor-grab active:cursor-grabbing transition-colors flex items-center gap-1 ${
+                                    isScheduled
+                                      ? 'bg-amber-100 border border-amber-300 hover:bg-amber-200'
+                                      : 'bg-white border border-amber/30 hover:bg-amber/10'
+                                  } ${draggedEvent?.id === lesson.id ? 'opacity-50' : ''}`}
+                                  title={`${displayTitle}${isScheduled ? ' (scheduled: ' + lesson.scheduled_date + ')' : ' (not scheduled)'}`}
+                                >
+                                  {isPrepared && <span className="text-[10px]">⭐</span>}
+                                  <span className="truncate">{displayTitle}</span>
+                                  {isScheduled && <span className="text-[9px] text-amber-600 ml-auto flex-shrink-0">📅</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Calendar Card */}
-            <div className="glass-card overflow-hidden animate-card-in flex-1 min-w-0">
+            <div className={`glass-card overflow-hidden animate-card-in transition-all duration-300 ${
+              showLessonsSidebar && currentView === 'devotions' ? 'ml-[220px] sm:ml-64' : 'ml-0'
+            }`}>
             {/* Weekly Layout */}
             {VIEWS[currentView]?.layout === 'weekly' ? (
               <div className="p-4">
@@ -2530,19 +2545,6 @@ export default function App() {
                     📋 Unscheduled ({unscheduledSermons.length})
                   </button>
                 )}
-                {/* Devotions view: Untaught lessons button */}
-                {currentView === 'devotions' && untaughtLessons.length > 0 && (
-                  <button
-                    onClick={() => setShowLessonsSidebar(!showLessonsSidebar)}
-                    className={`px-3 py-2 rounded-full text-sm font-medium transition-all ${
-                      showLessonsSidebar
-                        ? 'btn-glossy-amber'
-                        : 'btn-glass'
-                    }`}
-                  >
-                    📚 Lessons ({untaughtLessons.length})
-                  </button>
-                )}
               </div>
 
               {/* Filter Icons - absolute right (only for sermons view) */}
@@ -2579,21 +2581,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Mobile-only: Untaught lessons button (devotions) */}
-            {currentView === 'devotions' && untaughtLessons.length > 0 && (
-              <div className="sm:hidden px-3 py-2 border-b border-amber/10 bg-gradient-to-r from-amber-50/50 to-white/50">
-                <button
-                  onClick={() => setShowLessonsSidebar(!showLessonsSidebar)}
-                  className={`w-full px-3 py-2 rounded-full text-sm font-medium transition-all ${
-                    showLessonsSidebar
-                      ? 'btn-glossy-amber'
-                      : 'btn-glass'
-                  }`}
-                >
-                  📚 Lessons ({untaughtLessons.length})
-                </button>
-              </div>
-            )}
 
             {/* Calendar Grid with optional sidebar */}
             <div className={`flex ${showUnscheduled ? 'flex-col lg:flex-row' : ''}`}>
