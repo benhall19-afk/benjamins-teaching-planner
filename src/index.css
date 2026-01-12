@@ -931,11 +931,11 @@ h1, h2, h3, h4, h5, h6 {
    LESSONS SLIDEOUT SIDEBAR
    ============================================ */
 
-/* Tab button at top left edge */
+/* Tab button at right edge of sidebar */
 .lessons-slideout-tab {
   position: absolute;
   top: 1rem;
-  left: 0;
+  left: 256px;
   z-index: 30;
   transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
@@ -944,8 +944,8 @@ h1, h2, h3, h4, h5, h6 {
   background: transparent;
 }
 
-.lessons-slideout-tab.open {
-  left: 260px;
+.lessons-slideout-tab:not(.open) {
+  left: 0;
 }
 
 .lessons-slideout-tab-content {
@@ -1038,8 +1038,12 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Mobile adjustments for slideout */
 @media (max-width: 640px) {
-  .lessons-slideout-tab.open {
-    left: 224px;
+  .lessons-slideout-tab {
+    left: 220px;
+  }
+
+  .lessons-slideout-tab:not(.open) {
+    left: 0;
   }
 
   .lessons-slideout-tab-content {
