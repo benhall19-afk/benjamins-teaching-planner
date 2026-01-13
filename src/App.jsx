@@ -3567,7 +3567,7 @@ export default function App() {
           <AddMeetupForm
             initialDate={addMeetupDate}
             initialContact={addMeetupContact}
-            contacts={discipleContacts}
+            contacts={[...new Map([...discipleContacts, ...familyContacts, ...supportingPastorContacts, ...spirituallyInterestedContacts].map(c => [c.id, c])).values()]}
             lessons={spiritualLessons}
             onSave={handleAddMeetup}
             onCancel={() => { setShowAddMeetupModal(false); setAddMeetupContact(null); }}
